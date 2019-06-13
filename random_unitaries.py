@@ -15,9 +15,8 @@ D = 2
 d = 2
 
 
-def random_unitary(i, depth=5, p=0.5):
+def random_unitary(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
-    length = 2
     qubits = [GridQubit(i, 0) for i in range(length)]
     circuit = Circuit()
 
@@ -31,13 +30,14 @@ def random_unitary(i, depth=5, p=0.5):
     for i in range(depth):
         if rand()>p:
             # one qubit gate
-            circuit.append(U(randint(1, length)))
+            circuit.append(U(randint(0, length)))
         else:
             # two qubit gate
+            i = randint(0, length-1)
             if rand()>0.5:
-                circuit.append(CNOT(qubits[0], qubits[1]))
+                circuit.append(CNOT(qubits[i], qubits[i+1]))
             else:
-                circuit.append(CNOT(qubits[1], qubits[0]))
+                circuit.append(CNOT(qubits[i+1], qubits[i]))
     return circuit
 
 def random_mps(L, d=2, D=2, lr = 'r'):
