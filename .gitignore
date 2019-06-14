@@ -1,6 +1,7 @@
 idmrg.py*
 *.swp
 *.swo
+*.swn
 
 old/
 
