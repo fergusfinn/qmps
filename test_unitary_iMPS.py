@@ -9,6 +9,8 @@ import cirq
 from numpy import allclose
 from numpy.random import randn
 from numpy.linalg import qr
+import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 class TestcMPS(unittest.TestCase):
     """TestcMPS"""
@@ -48,7 +50,6 @@ class TestcMPS(unittest.TestCase):
             V = embed(C)
 
             self.assertTrue(full_env_obj_fun(U, V)<1e-6)
-            test_full_env_obj_fun(U, V)
 
     def test_sampled_environment_objective_function(self):
         for AL, AR, C in self.As:
@@ -77,10 +78,45 @@ class TestcMPS(unittest.TestCase):
             self.assertTrue(full_env_obj_fun(U, embed(C_))<1e-5)
             self.assertTrue(full_env_obj_fun(U, embed(C)) <1e-5)
 
-    #@unittest.skip('slow')
+    @unittest.skip('slow')
     def test_get_env_ising(self):
+        from scipy import integrate
         for AL, AR, C in self.As:
-            U, V = optimize_ising(1, 1)
+            g = 0.5
+            U, V = optimize_ising_D_2(1, g)
+
+            f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
+            E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
+            print("E_exact =", E0_exact)
+
+    @unittest.skip('useless')
+    def test_state_class(self):
+        n = 2
+        D = 2**n
+        U = eye(2*D)
+        V = eye(D**2)
+        qbs = cirq.LineQubit.range(2*n+1)
+        C = cirq.Circuit()
+        C.append([State(ShallowStateTensor(D, 0.1, 0.1), 
+                        ShallowEnvironment(D, 0.5, 0.1))(*qbs)])
+        print('\n', C.to_text_diagram(transpose=True), '\n')
+        sim = cirq.Simulator()
+        print(sim.simulate(C).final_state)
+
+    def test_shallow_env_obj_fun(self):
+        N = 50
+        n_qubits = 5 # remember req. qubits is 2*n_qubits+1
+        X, Y = np.linspace(0, 5, N), np.linspace(0, 5, N)
+        bg = np.abs(randn(2))
+        Z = np.array([[shallow_env_obj_fun(bg, (x, y), n_qubits) for x in tqdm(X)]
+                       for y in Y])
+        print(np.min(Z))
+        plt.contourf(Z)
+        plt.colorbar()
+        plt.xlabel('β')
+        plt.ylabel('γ')
+        plt.show()
+
         
 if __name__=='__main__':
-    unittest.main(verbosity=2)
+    unittest.main(verbosity=1)
