@@ -1,7 +1,7 @@
 import unittest
 
-from pymps.iMPS import iMPS, Map, TransferMatrix
-from pymps.tensor import embed, deembed
+from xmps.iMPS import iMPS, Map, TransferMatrix
+from xmps.tensor import embed, deembed
 from unitary_iMPS import *
 from random_unitaries import random_unitary
 import cirq
@@ -103,6 +103,7 @@ class TestcMPS(unittest.TestCase):
         sim = cirq.Simulator()
         print(sim.simulate(C).final_state)
 
+    @unittest.skip('slow')
     def test_shallow_env_obj_fun(self):
         N = 50
         n_qubits = 5 # remember req. qubits is 2*n_qubits+1

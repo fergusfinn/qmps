@@ -1,7 +1,7 @@
 from numpy import eye, allclose, concatenate, array, real, imag, sqrt
 from numpy.random import randn
 from scipy.linalg import norm, svd, null_space
-from pymps.spin import Sx1, Sy1, Sz1, Sx2, Sy2, Sz2
+from xmps.spin import Sx1, Sy1, Sz1, Sx2, Sy2, Sz2
 
 def svals(A):
     q = svd(A)[1]

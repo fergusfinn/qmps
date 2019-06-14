@@ -1,14 +1,13 @@
 from cirq.devices import GridQubit
 from cirq import Rx, Ry, Rz, Circuit, CNOT
-from pymps.fMPS import fMPS
-from pymps.spin import spins
 from numpy.random import rand, randint
 from numpy import pi as π, arcsin, sqrt
 import numpy as np
-Sx, Sy, Sz = spins(0.5)
 
-import pymps.fMPS as fMPS
-np
+from xmps.fMPS import fMPS
+from xmps.spin import spins
+
+Sx, Sy, Sz = spins(0.5)
 
 L = 5
 D = 2

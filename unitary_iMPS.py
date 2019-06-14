@@ -1,13 +1,12 @@
 import unittest
 
-from pymps.tensor import unitary_extension, embed, H as cT, C as c, T, haar_unitary
-from pymps.tensor import deembed, eye_like
+from xmps.tensor import unitary_extension, embed, H as cT, C as c, T, haar_unitary
+from xmps.tensor import deembed, eye_like
 
 from numpy import transpose, prod, array, sum, sqrt, mean, real, imag, concatenate
 from numpy import array, allclose, kron, tensordot, trace as tr, eye
 from numpy.random import randn
 import numpy as np
-from pymps.spin import N_body_spins
 
 from math import log as mlog
 def log2(x): return mlog(x, 2)
@@ -20,8 +19,9 @@ import cirq
 from scipy.linalg import norm
 from scipy.optimize import minimize
 from scipy.optimize import approx_fprime
-from pymps.spin import U4 # 15d real parametrisation of SU(2)
-from tools import svals
+
+from xmps.spin import U4 # 15d real parametrisation of SU(2)
+from xmps.spin import N_body_spins
 
 class StateTensor2(cirq.TwoQubitGate):
     """StateTensor2: represent state tensor as a unitary"""
