@@ -79,7 +79,7 @@ class TestcMPS(unittest.TestCase):
             self.assertTrue(full_env_obj_fun(U, embed(C)) <1e-5)
 
     @unittest.skip('slow')
-    def test_get_env_ising(self):
+    def test_optimize_ising(self):
         from scipy import integrate
         for AL, AR, C in self.As:
             g = 0.5
@@ -103,21 +103,20 @@ class TestcMPS(unittest.TestCase):
         sim = cirq.Simulator()
         print(sim.simulate(C).final_state)
 
-    @unittest.skip('slow')
     def test_shallow_env_obj_fun(self):
-        N = 50
+        N = 200
         n_qubits = 5 # remember req. qubits is 2*n_qubits+1
-        X, Y = np.linspace(0, 5, N), np.linspace(0, 5, N)
-        bg = np.abs(randn(2))
-        Z = np.array([[shallow_env_obj_fun(bg, (x, y), n_qubits) for x in tqdm(X)]
-                       for y in Y])
-        print(np.min(Z))
-        plt.contourf(Z)
-        plt.colorbar()
-        plt.xlabel('β')
-        plt.ylabel('γ')
-        plt.show()
-
+        X, Y = np.linspace(0, 2, N), np.linspace(0, 2, N)
+        bg = (np.abs(randn(2)),)
+        for u in np.linspace(0, 1, 10):
+            Z = np.array([[shallow_env_obj_fun(bg, ((x, y), (u, 0)), n_qubits) for x in X]
+                           for y in tqdm(Y)])
+            print(np.min(Z))
+            plt.contourf(Z)
+            plt.colorbar()
+            plt.xlabel('β')
+            plt.ylabel('γ')
+            plt.show()
         
 if __name__=='__main__':
     unittest.main(verbosity=1)

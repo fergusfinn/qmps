@@ -23,8 +23,16 @@ from scipy.optimize import approx_fprime
 from xmps.spin import U4 # 15d real parametrisation of SU(2)
 from xmps.spin import N_body_spins
 
+#########################################################################
+#########################################################################
+
+# D=2 Case
+
+#########################################################################
+#########################################################################
+
 class StateTensor2(cirq.TwoQubitGate):
-    """StateTensor2: represent state tensor as a unitary"""
+    """Gate taking full two qubit unitary U, representing the mps tensor"""
     def __init__(self, U):
         self.U = U
     def _unitary_(self):
@@ -33,7 +41,7 @@ class StateTensor2(cirq.TwoQubitGate):
         return 'U', 'U'
 
 class Environment2(cirq.TwoQubitGate):
-    """Environment2: represents the environment tensor as a unitary"""
+    """Environment2: represents the environment tensor as a two qubit unitary"""
     def __init__(self, V):
         self.V = V
     def _unitary_(self):
@@ -42,7 +50,7 @@ class Environment2(cirq.TwoQubitGate):
         return 'V', 'V'
  
 class State2(cirq.ThreeQubitGate):
-    """State: combination of Environment2 and StateTensor2"""
+    """State: combines the StateTensor and Environment into a State"""
     def __init__(self, U, V):
         self.U = U
         self.V = V
@@ -59,6 +67,7 @@ def mat(v):
     return C
 
 def demat(A):
+    '''takes a matrix, breaks it down into a real vector'''
     re, im = real(A).reshape(-1), imag(A).reshape(-1)  
     return concatenate([re, im], axis=0)
 
@@ -100,10 +109,10 @@ def from_unitaries_l(Us):
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     """sampled_bloch_vector_of: get bloch vector of a 
     specified qubit by sampling. 
-    Adds measurements to existing circuit
 
     :param qubit: qubit to sample bloch vector of 
     :param circuit: circuit to evaluate before sampling
+    :param reps: number of measurements on each qubit
     """
     sim = cirq.Simulator()
     C = circuit.copy()
@@ -125,6 +134,19 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
 
 def full_env_obj_fun(U, V):
     """full_environment_objective_function: return norm of difference of bloch vectors
+       of qubit 0 in 
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        j | |   j | |  
+
     """
     qbs = cirq.LineQubit.range(3)
     r = 0
@@ -139,7 +161,20 @@ def full_env_obj_fun(U, V):
     return norm(LHS-RHS)
 
 def sampled_env_obj_fun(U, V, reps=10000):
-    """sampled_env_obj_fun
+    """sampled_environment_objective_function: return norm of difference of (sampled) bloch vectors
+       of qubit 0 in 
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        j | |   j | |  
+
     """
     qbs = cirq.LineQubit.range(3)
     r = 0
@@ -166,14 +201,19 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
         | | | = | | |             
         j | |   j | |  
 
-        to precision k/100000
         '''
 
     def f_obj(v, U=U):
+        """f_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, embed to 
+           turn it into a unitary, then calculate the objective function.
+        """
         r = full_env_obj_fun(U, embed(mat(v)))
         return r
 
     def s_obj(v, U=U):
+        """s_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, embed to 
+           turn it into a unitary, then calculate the (sampled) objective function.
+        """
         r = sampled_env_obj_fun(U, embed(mat(v)))
         return r
 
@@ -216,18 +256,20 @@ def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
         ψ = sim.simulate(C).final_state
         return np.real(ψ.conj().T@(-J*IZZI+λ*(IXII+IIXI)/2)@ψ)
 
-    def optimize_energy(N=400, env_update=20, ϵ=5e-1, e_fun = sampled_energy if sample else full_energy):
+    def optimize_energy(N=400, env_update=100, ϵ=1e-1, e_fun = sampled_energy if sample else full_energy):
         """minimizes ising energy in a full parametrisation of SU(4)
+           u at each time step is a 15d real vector, with U4(u) = exp(-iu⋅σ), 
+           σ the vector of generators of SU(4).
 
         :param N: how many steps to take
         :param env_update: update the environment every env_update steps
-        :param ϵ: time step
+        :param ϵ: time step (learning rate)
         :param e_fun: whether to use the sampled or full energy function
         """
         def f(u, V, λ): return full_energy(U4(u), V, λ)
         
-        u = randn(15)
-        V = get_env(U4(u))
+        u = randn(15) # initial value of u
+        V = get_env(U4(u)) # get initial value of V
 
         for n in range(N):
             du = ϵ*approx_fprime(u, f, 0.1, V, 1)
@@ -242,6 +284,14 @@ def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
 
     U, V = optimize_energy()
     return U, V
+
+#########################################################################
+#########################################################################
+
+# General Case
+
+#########################################################################
+#########################################################################
 
 class StateTensor(cirq.Gate):
     pass
@@ -281,29 +331,33 @@ class FullEnvironment(Environment):
  
 class ShallowStateTensor(StateTensor):
     """ShallowStateTensor: shallow state tensor based on the QAOA circuit"""
-    def __init__(self, D, β, γ):
-        self.β, self.γ = β, γ
+    def __init__(self, D, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
         self.n_qubits = int(log2(D))+1
 
     def num_qubits(self):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [cirq.X(qubit)**self.β for qubit in qubits]+\
-               [cirq.ZZ(qubits[i], qubits[i+1])**self.γ for i in range(self.n_qubits-1)]
+        return [[cirq.X(qubit)**β for qubit in qubits]+\
+                [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
+                for β, γ in self.βγs]
 
 class ShallowEnvironment(Environment):
     """ShallowEnvironmentTensor: shallow environment tensor based on the QAOA circuit"""
-    def __init__(self, D, β, γ):
-        self.β, self.γ = β, γ
+    def __init__(self, D, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
         self.n_qubits = 2*int(log2(D))
 
     def num_qubits(self):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [cirq.X(qubit)**self.β for qubit in qubits]+\
-               [cirq.ZZ(qubits[i], qubits[i+1])**self.γ for i in range(self.n_qubits-1)]
+        return [[cirq.X(qubit)**β for qubit in qubits]+\
+                [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
+                for β, γ in self.βγs]
 
 class State(cirq.Gate):
     """State: takes a StateTensor gate and an Environment gate"""
@@ -331,14 +385,13 @@ class State(cirq.Gate):
       return ('I\n|\nU', *['V\n|\nU']*int(log2(D)), *['V\n|\nI']*int(log2(D)))
 
 def shallow_env_obj_fun(U_params, V_params, n):
-    (β, γ), (β_, γ_) = U_params, V_params
     qbs = cirq.LineQubit.range(2*n+1)
     r = 0
 
     LHS, RHS = Circuit(), Circuit()
-    LHS.append([State(ShallowStateTensor(2**n, β, γ), 
-                ShallowEnvironment(2**n, β_, γ_))(*qbs)])
-    RHS.append([ShallowEnvironment(2**n, β_, γ_)(*qbs[:2*n])])
+    LHS.append([State(ShallowStateTensor(2**n, U_params), 
+                ShallowEnvironment(2**n, V_params))(*qbs)])
+    RHS.append([ShallowEnvironment(2**n, V_params)(*qbs[:2*n])])
 
     sim = Simulator()
     LHS = sim.simulate(LHS).bloch_vector_of(qbs[0])
@@ -346,76 +399,14 @@ def shallow_env_obj_fun(U_params, V_params, n):
     return norm(LHS-RHS)
 
 def shallow_sampled_env_obj_fun(U_params, V_params, n, reps=100000):
-    (β, γ), (β_, γ_) = U_params, V_params
     qbs = cirq.LineQubit.range(2*n+1)
     r = 0
 
     LHS, RHS = Circuit(), Circuit()
-    LHS.append([State(ShallowStateTensor(2**n, β, γ), 
-                ShallowEnvironment(2**n, β_, γ_))(*qbs)])
-    RHS.append([ShallowEnvironment(2**n, β_, γ_)(*qbs[:2*n])])
+    LHS.append([State(ShallowStateTensor(2**n, U_params), 
+                ShallowEnvironment(2**n, V_params))(*qbs)])
+    RHS.append([ShallowEnvironment(2**n, V_params)(*qbs[:2*n])])
 
     LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
     return norm(LHS-RHS)
-
-def optimize_ising_D_4(J, λ, sample=False, reps=10000, testing=False):
-    """optimize H = -J*ZZ+gX
-    """
-    def sampled_energy(U, V, J, λ, reps=reps):
-        qbs = cirq.LineQubit.range(4)
-        sim = cirq.Simulator()
-
-        # create the circuit for 2 local measurements
-        C =  Circuit().from_ops([Environment2(V)(*qbs[2:4]), StateTensor2(U)(*qbs[1:3]), StateTensor2(U)(*qbs[0:2])])
-
-        C_ = C.copy()
-        # measure ZZ
-        C_.append([cirq.CNOT(qbs[2], qbs[1]), cirq.measure(qbs[1], key='zz')]) 
-        meas = sim.run(C_, repetitions=reps).measurements['zz']
-        zz = array(list(map(lambda x: 1-2*int(x), meas))).mean()
-
-        C_ = C.copy()
-        # measure X
-        C_.append([cirq.H(qbs[2]), cirq.measure(qbs[2], key='x')])
-        meas = sim.run(C_, repetitions=reps).measurements['x']
-        x = array(list(map(lambda x: 1-2*int(x), meas))).mean()
-        return -J*zz+λ*x
-
-    def full_energy(U, V, λ):
-        qbs = cirq.LineQubit.range(4)
-        sim = cirq.Simulator()
-
-        C = Circuit().from_ops([Environment2(V)(*qbs[2:4]), StateTensor2(U)(*qbs[1:3]), StateTensor2(U)(*qbs[0:2])])
-        IZZI = 4*N_body_spins(0.5, 2, 4)[2]@N_body_spins(0.5, 3, 4)[2]
-        IIXI = 2*N_body_spins(0.5, 3, 4)[0]
-        IXII = 2*N_body_spins(0.5, 2, 4)[0]
-        ψ = sim.simulate(C).final_state
-        return np.real(ψ.conj().T@(-J*IZZI+λ*(IXII+IIXI)/2)@ψ)
-
-    def optimize_energy(N=400, env_update=20, ϵ=5e-1, e_fun = sampled_energy if sample else full_energy):
-        """minimizes ising energy in a full parametrisation of SU(4)
-
-        :param N: how many steps to take
-        :param env_update: update the environment every env_update steps
-        :param ϵ: time step
-        :param e_fun: whether to use the sampled or full energy function
-        """
-        def f(u, V, λ): return full_energy(U4(u), V, λ)
-        
-        u = randn(15)
-        V = get_env(U4(u))
-
-        for n in range(N):
-            du = ϵ*approx_fprime(u, f, 0.1, V, 1)
-            u -= du
-            if not n%env_update:
-                print('\nupdating environment\n')
-                V = get_env(U4(u), deembed(V))
-            print(f(u, V, λ))
-
-        U = U4(u)
-        return U, V
-
-    U, V = optimize_energy()
-    return U, V
