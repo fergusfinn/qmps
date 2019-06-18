@@ -272,7 +272,7 @@ def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
         V = get_env(U4(u)) # get initial value of V
 
         for n in range(N):
-            du = ϵ*approx_fprime(u, f, 0.1, V, 1)
+            du = ϵ*approx_fprime(u, f, ϵ, V, 1)
             u -= du
             if not n%env_update:
                 print('\nupdating environment\n')
@@ -342,7 +342,7 @@ class ShallowStateTensor(StateTensor):
     def _decompose_(self, qubits):
         return [[cirq.X(qubit)**β for qubit in qubits]+\
                 [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
-                for β, γ in self.βγs]
+                for β, γ in split_2s(self.βγs)]
 
 class ShallowEnvironment(Environment):
     """ShallowEnvironmentTensor: shallow environment tensor based on the QAOA circuit"""
@@ -357,7 +357,7 @@ class ShallowEnvironment(Environment):
     def _decompose_(self, qubits):
         return [[cirq.X(qubit)**β for qubit in qubits]+\
                 [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
-                for β, γ in self.βγs]
+                for β, γ in split_2s(self.βγs)]
 
 class State(cirq.Gate):
     """State: takes a StateTensor gate and an Environment gate"""
@@ -410,3 +410,131 @@ def shallow_sampled_env_obj_fun(U_params, V_params, n, reps=100000):
     LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
     return norm(LHS-RHS)
+
+def split_2s(x):
+    return [x[i:i+2] for i in range(len(x)) if not i%2]
+
+def get_shallow_env(U_params, n, cut_off_if_less_than=1e-2, p=2, max_iters=500, ϵ=1e-1, schedule=0.5, noisy=False):
+    """get_shallow_env: get the environment with the qaoa parametrisation
+
+    U_params: parameters determining the state
+    n: number of qubits
+    cut_off_if_less_than: stop optimizing if objective less than this
+    p: QAOA depth
+    max_iters: maximum number of iterations
+    ϵ: initial ϵ
+    schedule: if the objective function increases, multiply ϵ by schedule
+    noisy: print update info
+    """
+    if noisy:
+        print('getting environment: n={}, p={}'.format(n, p))
+
+    def f(βγ): return shallow_env_obj_fun(U_params, βγ, n)
+    βγ = randn(p*2)
+    w = schedule
+    candidate = βγ
+    for t in range(1, max_iters+1):
+        x = f(βγ)
+        if noisy:
+            print(x)
+        if x < f(candidate):
+            candidate = βγ
+        else:
+            if noisy: 
+                print('decreasing ϵ')
+            ϵ = ϵ*w
+            βγ = candidate
+        if cut_off_if_less_than>x:
+            break
+
+        dβγ = ϵ*approx_fprime(βγ, f, ϵ)
+        βγ = βγ - dβγ
+
+    return βγ
+
+def optimize_ising(D, J, λ, p=2, max_iters=1000, env_update=10, ϵ=1e-1, w=0.5, sample=False, reps=10000, testing=False):
+    """optimize H = -J*ZZ+gX
+      | | | | | | | | 
+      | | -----------       
+      | |      v         
+      | | -----------  
+      | | | | | | | |           (2)
+      | ------- | | |  
+      |    u    | | |  
+      | ------- | | |  
+      | | | | | | | |             
+      ------- | | | |
+         u    | | | |
+      ------- | | | |
+      | | | | | | | |
+      | | | σ ρ | | | 
+
+        ⏟         ⏟ 
+    (log2(D)) (log2(D))
+        """
+    def sampled_energy(U_βγ, V_βγ, J, λ, reps=reps):
+        n = int(log2(D))
+        n_qubits = 2*n+2
+        qbs = cirq.LineQubit.range(n_qubits)
+        sim = cirq.Simulator()
+
+        C = Circuit().from_ops([ShallowEnvironment(D, V_βγ)(*qbs[-2*n:]), 
+                                ShallowStateTensor(D, U_βγ)(*qbs[1:-n]), 
+                                ShallowStateTensor(D, U_βγ)(*qbs[:n+1])])
+
+        C_ = C.copy()
+        # measure ZZ
+        C_.append([cirq.CNOT(qbs[2], qbs[1]), cirq.measure(qbs[1], key='zz')]) 
+        meas = sim.run(C_, repetitions=reps).measurements['zz']
+        zz = array(list(map(lambda x: 1-2*int(x), meas))).mean()
+
+        C_ = C.copy()
+        # measure X
+        C_.append([cirq.H(qbs[2]), cirq.measure(qbs[2], key='x')])
+        meas = sim.run(C_, repetitions=reps).measurements['x']
+        x = array(list(map(lambda x: 1-2*int(x), meas))).mean()
+        return -J*zz+λ*x
+
+    def full_energy(U_βγ, V_βγ, J, λ):
+        n = int(log2(D))
+        n_qubits = 2*n+2
+        qbs = cirq.LineQubit.range(n_qubits)
+        sim = cirq.Simulator()
+
+        C = Circuit().from_ops([ShallowEnvironment(D, V_βγ)(*qbs[-2*n:]), 
+                                ShallowStateTensor(D, U_βγ)(*qbs[1:-n]), 
+                                ShallowStateTensor(D, U_βγ)(*qbs[:n+1])])
+        IZZI = 4*N_body_spins(0.5, n+1, n_qubits)[2]@N_body_spins(0.5, n+2, n_qubits)[2]
+        IIXI = 2*N_body_spins(0.5, n+2, n_qubits)[0]
+        IXII = 2*N_body_spins(0.5, n+1, n_qubits)[0]
+        ψ = sim.simulate(C).final_state
+        return np.real(ψ.conj().T@(-J*IZZI+λ*(IXII+IIXI)/2)@ψ)
+
+    u = randn(2*p)
+    print('initial_environment_update')
+    V_βγ = get_shallow_env(u, int(log2(D)), p=p, noisy=True)
+    print('found environment')
+
+    def f(u): return full_energy(u, V_βγ, J, λ)
+
+    candidate = u
+    x = f(u)
+    for t in range(1, max_iters+1):
+        if x < f(candidate):
+            candidate = u
+        if not t%env_update:
+            print('\nupdating environment\n')
+            u = candidate
+            x = f(u)
+            print('Best invalid guess: ', x)
+            V_βγ = get_shallow_env(u, int(log2(D)), p=2*p)
+            x = f(u)
+            print('Best valid guess: ', x)
+        else:
+            x = f(u)
+            print(x)
+
+        du = ϵ*approx_fprime(u, f, ϵ)
+        u -= du
+
+    return u, V_βγ

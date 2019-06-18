@@ -103,9 +103,10 @@ class TestcMPS(unittest.TestCase):
         sim = cirq.Simulator()
         print(sim.simulate(C).final_state)
 
+    @unittest.skip('slow')
     def test_shallow_env_obj_fun(self):
         N = 200
-        n_qubits = 5 # remember req. qubits is 2*n_qubits+1
+        n_qubits = 4 # remember req. qubits is 2*n_qubits+1
         X, Y = np.linspace(0, 2, N), np.linspace(0, 2, N)
         bg = (np.abs(randn(2)),)
         for u in np.linspace(0, 1, 10):
@@ -117,6 +118,12 @@ class TestcMPS(unittest.TestCase):
             plt.xlabel('β')
             plt.ylabel('γ')
             plt.show()
+
+    def test_shallow_env_obj_fun(self):
+        n = 4 # remember req. qubits is 2*n_qubits+1
+        D = 2**n
+        print(optimize_ising(D, 1, 1))
+
         
 if __name__=='__main__':
     unittest.main(verbosity=1)
