@@ -12,8 +12,8 @@ from math import log as mlog
 def log2(x): return mlog(x, 2)
 
 from cirq import TwoQubitMatrixGate, LineQubit, H, S, measure, inverse as inv, Circuit
-from cirq import CSWAP, X
-from cirq import Simulator
+from cirq import CSWAP, X 
+from cirq import Simulator 
 import cirq 
 
 from scipy.linalg import norm
@@ -412,6 +412,8 @@ def shallow_sampled_env_obj_fun(U_params, V_params, n, reps=100000):
     return norm(LHS-RHS)
 
 def split_2s(x):
+    """split_2s: take a list: [β, γ, β, γ, ...], return [[β, γ], [β, γ], ...]
+    """
     return [x[i:i+2] for i in range(len(x)) if not i%2]
 
 def get_shallow_env(U_params, n, cut_off_if_less_than=1e-2, p=2, max_iters=500, ϵ=1e-1, schedule=0.5, noisy=False):
@@ -452,7 +454,7 @@ def get_shallow_env(U_params, n, cut_off_if_less_than=1e-2, p=2, max_iters=500, 
 
     return βγ
 
-def optimize_ising(D, J, λ, p=2, max_iters=1000, env_update=10, ϵ=1e-1, w=0.5, sample=False, reps=10000, testing=False):
+def optimize_ising(D, J, λ, p=1, max_iters=1000, env_update=10, ϵ=1e-1, w=0.5, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
       | | | | | | | | 
       | | -----------       
@@ -511,6 +513,7 @@ def optimize_ising(D, J, λ, p=2, max_iters=1000, env_update=10, ϵ=1e-1, w=0.5,
         return np.real(ψ.conj().T@(-J*IZZI+λ*(IXII+IIXI)/2)@ψ)
 
     u = randn(2*p)
+    print(len(u))
     print('initial_environment_update')
     V_βγ = get_shallow_env(u, int(log2(D)), p=p, noisy=True)
     print('found environment')

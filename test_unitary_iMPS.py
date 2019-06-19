@@ -120,9 +120,9 @@ class TestcMPS(unittest.TestCase):
             plt.show()
 
     def test_shallow_env_obj_fun(self):
-        n = 4 # remember req. qubits is 2*n_qubits+1
+        n = 3 # remember req. qubits is 2*n_qubits+1
         D = 2**n
-        print(optimize_ising(D, 1, 1))
+        print(optimize_ising(D, 1, 0.5, p=1))
 
         
 if __name__=='__main__':
