@@ -1,7 +1,7 @@
 import cirq
 from unitary_iMPS import log2
 from SwapTest import Tensor, ShallowStateTensor, ShallowEnvironment, get_circuit, rprint, cirq_qubits,\
-    Optimizer, FullSwapOptimizer, text_print, tprint
+    Optimizer, FullSwapOptimizer, text_print, tprint, SingleQubitState
 import numpy as np
 from scipy.stats import unitary_group
 from scipy.optimize import minimize
@@ -41,7 +41,7 @@ class TwoQubitHamiltonian(cirq.Gate):
     def _decompose_(self, qubits):
         bond_dim = self.tqs.bond_dim
         qubit_num = int(log2(bond_dim))
-        return self.tqs._decompose_(qubits), self.hamiltonian._decompose_(qubits[qubit_num:qubit_num+2])
+        return self.tqs._decompose_(qubits), self.hamiltonian(*qubits[qubit_num:qubit_num+2])
 
     def num_qubits(self):
         return self.tqs.num_qubits()
@@ -60,23 +60,87 @@ class TQHamSwapState(cirq.Gate):
     |   |   |V*-|
     M   M   M   M = Measurement
     '''
-    def __init__(self, u: ShallowStateTensor, v: ShallowEnvironment, ham: Tensor):
-        self.state = u
-        self.environment = v
-        self.hamiltonian = ham
-        self.tqs = TwoQubitState(u, v)
-        self.tqh = TwoQubitHamiltonian(u, v, ham)
-        self.inverse_tqs = cirq.inverse(self.tqs)
+    def __init__(self, u_original: ShallowStateTensor, u_target: ShallowStateTensor,
+                 environment: ShallowEnvironment, hamiltonian: Tensor):
+        self.u_original = u_original
+        self.environment = environment
+        self.hamiltonian = hamiltonian
+        self.u_target = u_target
+
+    def _get_original_gates(self):
+        return TwoQubitHamiltonian(self.u_original, self.environment, self.hamiltonian)
+
+    def _get_target_gates(self):
+        return cirq.inverse(TwoQubitState(self.u_target, self.environment))
 
     def num_qubits(self):
-        return self.tqs.num_qubits()
+        return self._get_original_gates().num_qubits()
 
     def _decompose_(self, qubits):
-        return self.tqh._decompose_(qubits), self.inverse_tqs._decompose_(qubits)
+        original_gates = self._get_original_gates()
+        target_gates = self._get_target_gates()
+        return original_gates._decompose_(qubits), target_gates._decompose_(qubits)
+
+
+class SingleQubitHamiltonian(cirq.Gate):
+    '''
+    class to initialise gates to look like the following:
+    0   0   0
+    |   |   |
+    |   |-V-|
+    |-U-|   |
+    |   H   |
+    |   |   |
+    '''
+
+    def __init__(self, u: ShallowStateTensor, v: ShallowEnvironment, hamiltonian: cirq.Gate):
+        self.u = u
+        self.v = v
+        self.ham = hamiltonian
+        self.state = SingleQubitState(u, v)
+
+    def num_qubits(self):
+        return self.state.num_qubits()
+
+    def _decompose_(self, qubits):
+        aux_qubits = self.u.num_qubits() - 1
+        return self.state._decompose_(qubits), self.ham(qubits[aux_qubits])
+
+
+class SingleQubitHamSwap(cirq.Gate):
+    '''
+    initialise gates to produce circuit:
+    0   0   0
+    |   |-V-|
+    |-U-|   |
+    |   H   |
+    |U'-|   |
+    |   |V'-|
+    M   M   M
+    '''
+
+    def __init__(self, u_original: ShallowStateTensor, u_target: ShallowStateTensor,
+                 environment: ShallowEnvironment, hamiltonian: cirq.Gate):
+        self.u_original = u_original
+        self.hamiltonian = hamiltonian
+        self.environment = environment
+        self.u_target = u_target
+
+    def get_original_gates(self):
+        return SingleQubitHamiltonian(self.u_original, self.environment, self.hamiltonian)
+
+    def get_target_gates(self):
+        return cirq.inverse(SingleQubitState(self.u_target, self.environment))
+
+    def num_qubits(self):
+        return self.get_original_gates().num_qubits()
+
+    def _decompose_(self, qubits):
+        return self.get_original_gates()._decompose_(qubits), self.get_target_gates().on(*qubits)
 
 
 class TimeEvoOptimizer(Optimizer):
-    def __init__(self, u_params, v_params, bond_dim, hamiltonian):
+    def __init__(self, u_params, v_params, bond_dim, hamiltonian, evo_qubits = 1):
         self.u_params = u_params
         self.v_params = v_params
         self.hamiltonian = hamiltonian
@@ -88,6 +152,7 @@ class TimeEvoOptimizer(Optimizer):
         self.store_values = False
         self.optimized_result = None
         self.circuit = None
+        self.evo_qubits = evo_qubits
 
     @staticmethod
     def get_target_qubits(num_qubits, bond_dim):
@@ -95,28 +160,33 @@ class TimeEvoOptimizer(Optimizer):
         other_qbs = num_qubits - target_qbs
         return 2 ** other_qbs - 1
 
-    def objective_function(self, u_params):
-        u = ShallowStateTensor(self.bond_dim, u_params)
+    def objective_function(self, target_u_params):
+        u_original = ShallowStateTensor(self.bond_dim, self.u_params)
         v = ShallowEnvironment(self.bond_dim, self.v_params)
         ham = Tensor(self.hamiltonian, symbol='H') if not isinstance(self.hamiltonian, cirq.Gate) else self.hamiltonian
+        u_target = ShallowStateTensor(self.bond_dim, target_u_params)
 
-        state = TQHamSwapState(u, v, ham)
+        if self.evo_qubits == 2:
+            state = TQHamSwapState(u_original=u_original, u_target=u_target, environment=v, hamiltonian=ham)
+
+        if self.evo_qubits == 1:
+            state = SingleQubitHamSwap(u_original, u_target, v, ham)
+
         self.circuit = get_circuit(state)
 
         simulator = cirq.Simulator()
         results = simulator.simulate(self.circuit)
 
-        n_qubits = state.num_qubits()
-        target_qubits = self.get_target_qubits(n_qubits, self.bond_dim)
-        prob_zeros = sum(np.absolute(results.final_simulator_state.state_vector[:int(target_qubits)])**2)
-        return 1-prob_zeros
+        bloch_vec = results.bloch_vector_of(cirq_qubits(state.num_qubits())[0])
+        score = (bloch_vec[2])
+        return 1 - score
 
     def get_state(self, max_iter):
         options = {'maxiter': max_iter,
                    'disp': self.noisy}  # if noisy else False}
 
         kwargs = {'fun': self.objective_function,
-                  'x0': self.u_params,
+                  'x0': np.random.rand(len(self.u_params)),
                   'method': 'Nelder-Mead',
                   'tol': 1e-5,
                   'options': options,
@@ -127,15 +197,16 @@ class TimeEvoOptimizer(Optimizer):
             print(f'Reason for termination is {self.optimized_result.message}')
 
 
-class TwoQubitTimeEvolution:
-    def __init__(self, u_params=None, hamiltonian=None, bond_dim=2, qaoa_depth=2):
-        self.u_params = u_params if u_params else np.random.rand(2 * qaoa_depth)
-        self.hamiltonian = hamiltonian if hamiltonian else unitary_group.rvs(4)
+class QubitTimeEvolution:
+    def __init__(self, u_params=None, hamiltonian=None, bond_dim=2, qaoa_depth=2, evo_qubits=1):
+        self.u_params = u_params
+        self.hamiltonian = hamiltonian
         self.bond_dim = bond_dim
         self.qaoa_depth = qaoa_depth
         self.v_params = self.get_v_params()
         self.TimeEvoOptimizer = None
         self.EnvOptimizer = None
+        self.evo_qubits = evo_qubits
 
     def get_v_params(self, noisy=False):
         self.EnvOptimizer = FullSwapOptimizer(self.u_params, bond_dim=self.bond_dim, qaoa_depth=self.qaoa_depth)
@@ -144,7 +215,8 @@ class TwoQubitTimeEvolution:
         return self.EnvOptimizer.optimized_result.x
 
     def get_u_params(self, noisy=False):
-        self.TimeEvoOptimizer = TimeEvoOptimizer(self.u_params, self.v_params, self.bond_dim, self.hamiltonian)
+        self.TimeEvoOptimizer = TimeEvoOptimizer(self.u_params, self.v_params, self.bond_dim, self.hamiltonian,
+                                                 evo_qubits=self.evo_qubits)
         self.TimeEvoOptimizer.set_noise(noisy)
         self.TimeEvoOptimizer.get_state(max_iter=100)
         return self.TimeEvoOptimizer.optimized_result.x
@@ -180,16 +252,17 @@ class TransverseIsing(cirq.Gate):
 
 
 def main():
-    u = [0]*8
-    ham = TransverseIsing(j=0, lamda=np.pi/2, time_step=1)
-    evo_steps = 30
+    u = [0]*2
+    ham = cirq.X
+    evo_steps = 10
     current_step = 0
-    evolver = TwoQubitTimeEvolution(u_params=u, bond_dim=2, hamiltonian=ham, qaoa_depth=4)
+    evolver = QubitTimeEvolution(u_params=u, bond_dim=2, hamiltonian=ham, qaoa_depth=1)
+    qubit_0 = []
     qubit_1 = []
     qubit_2 = []
     while current_step < evo_steps:
         print(evolver.u_params, '\n', evolver.v_params)
-        evolver.evolve_single_step()
+        evolver.evolve_single_step(False)
         # prepare new optimized state
         u, v = evolver.u_params, evolver.v_params
         state = TwoQubitState(ShallowStateTensor(2, u), ShallowEnvironment(2, v))
@@ -199,20 +272,22 @@ def main():
         results = simulator.simulate(circuit)
 
         qubits = cirq_qubits(state.num_qubits())
+        qb0 = results.bloch_vector_of(qubits[0])
         qb1 = results.bloch_vector_of(qubits[1])
         qb2 = results.bloch_vector_of(qubits[2])
 
+        qubit_0.append(qb0)
         qubit_1.append(qb1)
         qubit_2.append(qb2)
         current_step += 1
         print(current_step)
 
-    return qubit_1, qubit_2
+    return qubit_0, qubit_1, qubit_2
 
 
 if __name__ == '__main__':
-    qubit_1, qubit2 = main()
+    qubit0, qubit1, qubit2 = main()
 
-    plt.plot(range(len(qubit_1)), qubit_1)
-    plt.plot(range(len(qubit2)), qubit2)
-    plt.show()
+    # plt.plot(range(len(qubit_1)), qubit_1)
+    # plt.plot(range(len(qubit2)), qubit2)
+    # plt.show()
