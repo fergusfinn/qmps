@@ -1,0 +1,19 @@
+\Qcircuit @R=1em @C=0.75em {
+ \\
+ &                       &                       &                       & \qw    &         \qw    &         \qw    &         \qw    &     &                   &\qw\\
+ &\lstick{\text{0}}&  \qw&                \qw    &\gate{\text{U}} \qw    & \qw    &\control \qw    &         \qw    &         \qw    & \qw &\gate{\text{H}} \qw&\qw\\
+ &\lstick{\text{1}}&  \qw&\gate{\text{V}} \qw    &\gate{\text{U}} \qw\qwx& \qw    &         \qw\qwx&\control \qw    &         \qw    & \qw &\gate{\text{H}} \qw&\qw\\
+ &\lstick{\text{2}}&  \qw&\gate{\text{V}} \qw\qwx&\gate{\text{U}} \qw\qwx& \qw    &         \qw\qwx&         \qw\qwx&\control \qw    & \qw &\gate{\text{H}} \qw&\qw\\
+ &\lstick{\text{3}}&  \qw&\gate{\text{V}} \qw\qwx&\gate{\text{U}} \qw\qwx& \qw    &         \qw\qwx&         \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{4}}&  \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw\qwx&         \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{5}}&  \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw\qwx&         \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{6}}&  \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw\qwx&         \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{7}}&  \qw&\gate{\text{V}} \qw    &                \qw    & \qw    &\targ    \qw\qwx&         \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{8}}&  \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw    &\targ    \qw\qwx&         \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{9}}&  \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw    &         \qw    &\targ    \qw\qwx& \qw &                \qw&\qw\\
+ &\lstick{\text{10}}& \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw    &         \qw    &         \qw    & \qw &                \qw&\qw\\
+ &\lstick{\text{11}}& \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw    &         \qw    &         \qw    & \qw &                \qw&\qw\\
+ &\lstick{\text{12}}& \qw&\gate{\text{V}} \qw\qwx&                \qw    & \qw    &         \qw    &         \qw    &         \qw    & \qw &                \qw&\qw\\
+ &                       &                       &                       & \qw\qwx&         \qw    &         \qw    &         \qw    & \qwx&                   &\qw\\
+ \\
+}
