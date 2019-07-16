@@ -25,6 +25,42 @@ class TwoQubitState(cirq.Gate):
         return self.n_qubits
 
 
+class NQubitState(cirq.Gate):
+    def __init__(self, u: ShallowStateTensor, v: ShallowEnvironment, n: int):
+        self.u = u
+        self.v = v
+        self.n_phys_qubits = n
+        self.bond_dim = int(2 ** (u.num_qubits() - 1))
+
+    def _decompose_(self, qubits):
+        v_qbs = self.v.num_qubits()
+        u_qbs = self.u.num_qubits()
+        n = self.n_phys_qubits
+        return [self.v(*qubits[n:n+v_qbs])] + [self.u(*qubits[i:i+u_qbs]) for i in range(n)]
+
+    def num_qubits(self):
+        return self.n_phys_qubits + self.v.num_qubits()
+
+
+class NQubitSwapState(cirq.Gate):
+    def __init__(self, u_original: ShallowStateTensor, u_target: ShallowStateTensor, v: ShallowEnvironment,
+                 n_phys_qubits: int, hamiltonian: cirq.Gate):
+        self.u_original = u_original
+        self.u_target = u_target
+        self.environment = v
+        self.n_phys_qubits = n_phys_qubits
+        self.hamiltonian = hamiltonian
+
+    def _decompose_(self, qubits):
+        aux_qubits = self.u_original.num_qubits()-1
+        return NQubitState(self.u_original, self.environment, self.n_phys_qubits).on(*qubits),\
+            self.hamiltonian.on(*qubits[aux_qubits:aux_qubits+self.n_phys_qubits]),\
+            cirq.inverse(NQubitState(self.u_target, self.environment, self.n_phys_qubits)).on(*qubits)
+
+    def num_qubits(self):
+        return self.n_phys_qubits + self.environment.num_qubits()
+
+
 class TwoQubitHamiltonian(cirq.Gate):
     '''
     Class for representing the circuit of the two qubit hamiltonian:
@@ -166,19 +202,14 @@ class TimeEvoOptimizer(Optimizer):
         ham = Tensor(self.hamiltonian, symbol='H') if not isinstance(self.hamiltonian, cirq.Gate) else self.hamiltonian
         u_target = ShallowStateTensor(self.bond_dim, target_u_params)
 
-        if self.evo_qubits == 2:
-            state = TQHamSwapState(u_original=u_original, u_target=u_target, environment=v, hamiltonian=ham)
-
-        if self.evo_qubits == 1:
-            state = SingleQubitHamSwap(u_original, u_target, v, ham)
-
+        state = NQubitSwapState(u_original, u_target, v, self.evo_qubits, ham)
         self.circuit = get_circuit(state)
 
         simulator = cirq.Simulator()
         results = simulator.simulate(self.circuit)
 
-        bloch_vec = results.bloch_vector_of(cirq_qubits(state.num_qubits())[0])
-        score = (bloch_vec[2])
+        final_state = results.final_simulator_state.state_vector[0]
+        score = np.abs(final_state)**2
         return 1 - score
 
     def get_state(self, max_iter):
@@ -186,8 +217,8 @@ class TimeEvoOptimizer(Optimizer):
                    'disp': self.noisy}  # if noisy else False}
 
         kwargs = {'fun': self.objective_function,
-                  'x0': np.random.rand(len(self.u_params)),
-                  'method': 'Nelder-Mead',
+                  'x0': self.u_params,
+                  'method': 'Powell',
                   'tol': 1e-5,
                   'options': options,
                   'callback': self.callback_store_values if self.store_values else None}
@@ -232,7 +263,12 @@ class QubitTimeEvolution:
 
 class TransverseIsing(cirq.Gate):
     '''
-    Cirq gate that implements the transverse Ising Gate U = exp(iΔt(J Z_i . Z_(i+1)) + λXi)
+    Cirq gate that implements the transverse Ising Gate U = exp(iΔt(J Z_i . Z_(i+1)) + λXi):
+    |       |       |
+    |       |e^Ht/4-|
+    |e^Ht/2-|       |
+    |       |e^Ht/4-|
+    |       |       |
     '''
     def __init__(self, j, time_step, lamda):
         self.J = j
@@ -240,53 +276,62 @@ class TransverseIsing(cirq.Gate):
         self.lamda = lamda
 
     def _decompose_(self, qubits):
-        return cirq.ZZPowGate(exponent=2 * self.time_step * self.J / np.pi).on(*qubits),\
-               cirq.XPowGate(exponent=2 * self.lamda * self.time_step / np.pi).on(qubits[0]),\
-               cirq.XPowGate(exponent=2 * self.lamda * self.time_step / np.pi).on(qubits[1])
+        zz_exponent =  2 * (self.time_step/2) * self.J / np.pi
+        xx_exponent = 2 * self.lamda * (self.time_step/2) / np.pi
+        return cirq.ZZPowGate(exponent=zz_exponent/2).on(*qubits[1:3]),\
+               cirq.XXPowGate(exponent=xx_exponent/2).on(*qubits[1:3]),\
+               cirq.ZZPowGate(exponent=zz_exponent).on(*qubits[0:2]),\
+               cirq.XXPowGate(exponent=xx_exponent).on(*qubits[0:2]),\
+               cirq.ZZPowGate(exponent=zz_exponent/2).on(*qubits[1:3]),\
+               cirq.XXPowGate(exponent=xx_exponent/2).on(*qubits[1:3])
 
     def num_qubits(self):
-        return 2
+        return 3
 
     def _circuit_diagram_info_(self, args):
         return ['H']*self.num_qubits()
 
 
-def main():
-    u = [0]*2
-    ham = cirq.X
-    evo_steps = 10
+def evolve_with_gate(qaoa_depth, evo_steps, hamiltonian):
+    u = [0]*2*qaoa_depth
     current_step = 0
-    evolver = QubitTimeEvolution(u_params=u, bond_dim=2, hamiltonian=ham, qaoa_depth=1)
-    qubit_0 = []
+    n_qubits = hamiltonian.num_qubits()
+
+    evolver = QubitTimeEvolution(u_params=u, bond_dim=2, hamiltonian=hamiltonian,
+                                 qaoa_depth=qaoa_depth, evo_qubits=n_qubits)
     qubit_1 = []
     qubit_2 = []
+    # qubit_3 = []
+
     while current_step < evo_steps:
         print(evolver.u_params, '\n', evolver.v_params)
         evolver.evolve_single_step(False)
         # prepare new optimized state
         u, v = evolver.u_params, evolver.v_params
-        state = TwoQubitState(ShallowStateTensor(2, u), ShallowEnvironment(2, v))
+        state = NQubitState(ShallowStateTensor(2, u), ShallowEnvironment(2, v), n=n_qubits)
         # simulate state
         circuit = get_circuit(state)
         simulator = cirq.Simulator()
         results = simulator.simulate(circuit)
 
         qubits = cirq_qubits(state.num_qubits())
-        qb0 = results.bloch_vector_of(qubits[0])
         qb1 = results.bloch_vector_of(qubits[1])
         qb2 = results.bloch_vector_of(qubits[2])
+        # qb3 = results.bloch_vector_of(qubits[3])
 
-        qubit_0.append(qb0)
         qubit_1.append(qb1)
         qubit_2.append(qb2)
+        # qubit_3.append(qb3)
         current_step += 1
         print(current_step)
 
-    return qubit_0, qubit_1, qubit_2
+    return qubit_1, qubit_2
 
 
 if __name__ == '__main__':
-    qubit0, qubit1, qubit2 = main()
+    # hamiltonian = TransverseIsing(0.1, 0.1, 1)
+    hamiltonian = cirq.X
+    qubit1, qubit2 = evolve_with_gate(8, 10, hamiltonian)
 
     # plt.plot(range(len(qubit_1)), qubit_1)
     # plt.plot(range(len(qubit2)), qubit2)
