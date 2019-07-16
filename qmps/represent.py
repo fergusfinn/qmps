@@ -1,13 +1,54 @@
 from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of
+from .tools import from_real_vector, to_real_vector, environment_to_unitary
 
-import numpy as np
 
 from math import log as mlog
 def log2(x): return mlog(x, 2)
 
+import numpy as np
 from numpy import concatenate, allclose, tensordot, swapaxes
+from numpy.random import randn
 from scipy.linalg import null_space, norm
+
+from scipy.optimize import minimize
 import cirq
+
+def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
+    '''NOTE: just here till we can refactor optimize.py
+       return v satisfying
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        j | |   j | |
+        '''
+
+    def f_obj(v, U=U):
+        """f_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, environment_to_unitary to 
+           turn it into a unitary, then calculate the objective function.
+        """
+        r = full_tomography_env_objective_function(FullStateTensor(U), 
+                FullEnvironment(environment_to_unitary(from_real_vector(v))))
+        return r
+
+    def s_obj(v, U=U):
+        """s_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, environment_to_unitary to 
+           turn it into a unitary, then calculate the (sampled) objective function.
+        """
+        r = sampled_env_objective_function(FullStateTensor(U), 
+                FullEnvironment(environment_to_unitary(from_real_vector(v))))
+        return r
+
+    obj = s_obj if sample else f_obj
+
+    res = minimize(obj, to_real_vector(C0.reshape(-1)), method='Nelder-Mead')
+    return environment_to_unitary(from_real_vector(res.x))
 
 #######################
 # Objective Functions #

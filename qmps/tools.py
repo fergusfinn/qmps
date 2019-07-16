@@ -1,7 +1,7 @@
 import cirq
 
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
-from numpy import array, pi as π, arcsin, sqrt
+from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 
 from numpy.random import rand, randint
 
@@ -9,6 +9,17 @@ from math import log as mlog
 def log2(x): return mlog(x, 2)
 
 from scipy.linalg import null_space, norm
+
+
+def from_real_vector(v):
+    '''helper function - put list of elements (real, imaginary) into a complex vector'''
+    re, im = split(v, 2)
+    return (re+im*1j)
+
+def to_real_vector(A):
+    '''takes a matrix, breaks it down into a real vector'''
+    re, im = real(A).reshape(-1), imag(A).reshape(-1)  
+    return concatenate([re, im], axis=0)
 
 def eye_like(A):
     """eye_like: identity same shape as A
@@ -60,6 +71,17 @@ def environment_to_unitary(v):
     v = v.reshape(1, -1)/norm(v)
     vs = null_space(v).conj().T
     return concatenate([v, vs], 0).T
+
+def environment_from_unitary(u):
+    '''matrix out of form
+              ↑ ↑
+              | |
+              ___
+               v   
+              ___
+              | |
+      '''
+    return (u@array([1, 0, 0, 0])).reshape(2, 2)
 
 def tensor_to_unitary(A, testing=False):
     """given a left isometric tensor A, put into a unitary.
