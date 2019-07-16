@@ -36,6 +36,7 @@ class TestRepresent(unittest.TestCase):
             V = FullEnvironment(environment_to_unitary(C))
 
             self.assertTrue(full_tomography_env_objective_function(U, V)<1e-6)
+            self.assertTrue(sampled_tomography_env_objective_function(U, V, 10000)<1e-1)
 
 
 if __name__ == '__main__':

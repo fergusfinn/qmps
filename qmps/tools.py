@@ -1,3 +1,5 @@
+import cirq
+
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array
 
@@ -86,3 +88,29 @@ def tensor_to_unitary(A, testing=False):
 
 def unitary_to_tensor(U):
     return tensordot(U.reshape(*2*int(log2(U.shape[0]))*[2]), array([1, 0]), [2, 0]).transpose([1, 0, 2])
+
+def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
+    """sampled_bloch_vector_of: get bloch vector of a 
+    specified qubit by sampling. 
+
+    :param qubit: qubit to sample bloch vector of 
+    :param circuit: circuit to evaluate before sampling
+    :param reps: number of measurements on each qubit
+    """
+    sim = cirq.Simulator()
+    C = circuit.copy()
+    C.append([cirq.measure(qubit, key='z')])
+    meas = sim.run(C, repetitions=reps).measurements['z']
+    z = array(list(map(int, meas))).mean()
+
+    C = circuit.copy()
+    C.append([cirq.inverse(cirq.S(qubit)), cirq.H(qubit), cirq.measure(qubit, key='y')])
+    meas = sim.run(C, repetitions=reps).measurements['y']
+    y = array(list(map(int, meas))).mean()
+
+    C = circuit.copy()
+    C.append([cirq.H(qubit), cirq.measure(qubit, key='x')])
+    meas = sim.run(C, repetitions=reps).measurements['x']
+    x = array(list(map(int, meas))).mean()
+
+    return -2*array([x, y, z])+1

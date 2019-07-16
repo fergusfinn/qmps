@@ -1,4 +1,4 @@
-from .tools import cT, direct_sum, unitary_extension
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of
 
 import numpy as np
 
@@ -9,8 +9,12 @@ from numpy import concatenate, allclose, tensordot, swapaxes
 from scipy.linalg import null_space, norm
 import cirq
 
+#######################
+# Objective Functions #
+#######################
+
 def sampled_tomography_env_objective_function(U, V, reps=10000):
-    """sampled_environment_objective_function: return norm of diffe       rence of (sampled) bloch vectors
+    """sampled_environment_objective_function: return norm of difference of (sampled) bloch vectors
        of qubit 0 in 
 
         | | |   | | | 
@@ -29,8 +33,8 @@ def sampled_tomography_env_objective_function(U, V, reps=10000):
     r = 0
 
     LHS, RHS = cirq.Circuit(), cirq.Circuit()
-    LHS.append([State2(U, V)(*qbs)])
-    RHS.append([Environment2(V)(*qbs[:2])])
+    LHS.append([State(U, V)(*qbs)])
+    RHS.append([V(*qbs[:2])])
 
     LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
@@ -64,6 +68,10 @@ def full_tomography_env_objective_function(U, V):
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
 
+############################################
+# Tensor, StateTensor, Environment, State  #
+############################################ 
+
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
         self.U = unitary
@@ -85,11 +93,14 @@ class Tensor(cirq.Gate):
         else:
             return self.__class__(np.linalg.multi_dot([self.U] * power))
 
+
 class StateTensor(Tensor):
     pass
 
+
 class Environment(Tensor):
     pass
+
 
 class FullStateTensor(StateTensor):
     """StateTensor: represent state tensor as a unitary"""
@@ -120,12 +131,12 @@ class ShallowStateTensor(StateTensor):
     def _circuit_diagram_info_(self, args):
         return ['U'] * self.n_qubits
 
+
 class FullEnvironment(Environment):
     """Environment: represents the environment tensor as a unitary"""
 
     def __init__(self, unitary, symbol='V'):
         super().__init__(unitary, symbol)
-
 
 
 class ShallowEnvironment(Environment):
@@ -146,6 +157,7 @@ class ShallowEnvironment(Environment):
 
     def _circuit_diagram_info_(self, args):
         return ['V'] * self.n_qubits
+
 
 class PowerCircuit(cirq.Gate):
     def __init__(self, state:FullStateTensor, power):
