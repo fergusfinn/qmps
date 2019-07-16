@@ -127,3 +127,19 @@ def full_tomography_env_objective_function(U, V):
     LHS = sim.simulate(LHS).bloch_vector_of(qbs[0])
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
+
+class State(cirq.Gate):
+    def __init__(self, u: ShallowStateTensor, v: ShallowEnvironment, n: int):
+        self.u = u
+        self.v = v
+        self.n_phys_qubits = n
+        self.bond_dim = int(2 ** (u.num_qubits() - 1))
+
+    def _decompose_(self, qubits):
+        v_qbs = self.v.num_qubits()
+        u_qbs = self.u.num_qubits()
+        n = self.n_phys_qubits
+        return [self.v(*qubits[n:n+v_qbs])] + [self.u(*qubits[i:i+u_qbs]) for i in range(n)]
+
+    def num_qubits(self):
+        return self.n_phys_qubits + self.v.num_qubits()
