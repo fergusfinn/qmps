@@ -30,6 +30,7 @@ class TestcMPS(unittest.TestCase):
             As = from_unitaries_l(Us)
             self.assertTrue(allclose(As[0], AL[0]))
 
+    @unittest.skip('slow')
     def test_full_environment_objective_function(self):
         for AL, AR, C in self.As:
             AL, AR = AL.data[0], AR.data[0]
@@ -51,6 +52,7 @@ class TestcMPS(unittest.TestCase):
 
             self.assertTrue(full_env_obj_fun(U, V)<1e-6)
 
+    @unittest.skip('slow')
     def test_sampled_environment_objective_function(self):
         for AL, AR, C in self.As:
             AL, AR = AL.data[0], AR.data[0]
@@ -59,6 +61,7 @@ class TestcMPS(unittest.TestCase):
             V = embed(C)
             self.assertTrue(sampled_env_obj_fun(U, V, reps=10000)<1e-1)
 
+    @unittest.skip('slow')
     def test_sampled_bloch_vector_of(self):
         circuit = random_unitary(5)
         sim = cirq.Simulator()
@@ -78,11 +81,15 @@ class TestcMPS(unittest.TestCase):
             self.assertTrue(full_env_obj_fun(U, embed(C_))<1e-5)
             self.assertTrue(full_env_obj_fun(U, embed(C)) <1e-5)
 
-    @unittest.skip('slow')
     def test_optimize_ising(self):
         from scipy import integrate
         for AL, AR, C in self.As:
             g = 0.5
+
+            f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
+            E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
+            print("E_exact =", E0_exact)
+
             U, V = optimize_ising_D_2(1, g)
 
             f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
@@ -118,11 +125,6 @@ class TestcMPS(unittest.TestCase):
             plt.xlabel('β')
             plt.ylabel('γ')
             plt.show()
-
-    def test_shallow_env_obj_fun(self):
-        n = 3 # remember req. qubits is 2*n_qubits+1
-        D = 2**n
-        print(optimize_ising(D, 1, 0.5, p=1))
 
         
 if __name__=='__main__':
