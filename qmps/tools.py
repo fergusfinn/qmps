@@ -4,7 +4,12 @@ from numpy import array
 from math import log as mlog
 def log2(x): return mlog(x, 2)
 
-from scipy.linalg import null_space
+from scipy.linalg import null_space, norm
+
+def eye_like(A):
+    """eye_like: identity same shape as A
+    """
+    return eye(A.shape[0])
 
 def cT(tensor):
     """H: Hermitian conjugate of last two indices of a tensor
