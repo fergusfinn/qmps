@@ -24,6 +24,14 @@ from xmps.spin import U4 # 15d real parametrisation of SU(2)
 from xmps.spin import N_body_spins
 from scipy.linalg import null_space
 
+#########################################################################
+#########################################################################
+
+# Notebook code
+
+#########################################################################
+#########################################################################
+
 def environment_to_unitary(v):
     '''put matrix in form
               ↑ ↑
@@ -59,6 +67,63 @@ def left_orthogonal_tensor_to_unitary(A):
     #  i σ 
 
     return U
+
+def sampled_tomography_env_objective_function(U, V, reps=10000):
+    """sampled_environment_objective_function: return norm of difference of (sampled) bloch vectors
+       of qubit 0 in 
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        ρ | |   σ | |  
+
+    """
+    U, V = U._unitary_(), V._unitary_()
+    qbs = cirq.LineQubit.range(3)
+    r = 0
+
+    LHS, RHS = Circuit(), Circuit()
+    LHS.append([State2(U, V)(*qbs)])
+    RHS.append([Environment2(V)(*qbs[:2])])
+
+    LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
+    RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
+    return norm(LHS-RHS)
+
+def full_tomography_env_objective_function(U, V):
+    """full_environment_objective_function: return norm of difference of bloch vectors
+       of qubit 0 in 
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        j | |   j | |  
+
+    """
+    U, V = U._unitary_(), V._unitary_()
+    qbs = cirq.LineQubit.range(3)
+    r = 0
+
+    LHS, RHS = Circuit(), Circuit()
+    LHS.append([State2(U, V)(*qbs)])
+    RHS.append([Environment2(V)(*qbs[:2])])
+
+    sim = Simulator()
+    LHS = sim.simulate(LHS).bloch_vector_of(qbs[0])
+    RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
+    return norm(LHS-RHS)
 
 #########################################################################
 #########################################################################
