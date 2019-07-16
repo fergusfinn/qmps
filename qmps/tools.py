@@ -81,4 +81,3 @@ def tensor_to_unitary(A, testing=False):
 
 def unitary_to_tensor(U):
     return tensordot(U.reshape(*2*int(log2(U.shape[0]))*[2]), array([1, 0]), [2, 0]).transpose([1, 0, 2])
-
