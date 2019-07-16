@@ -13,8 +13,6 @@ class TestRepresent(unittest.TestCase):
         N = 3  
         self.xs = [randn(8, 8)+1j*randn(8, 8) for _ in range(N)]
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
-
-    def test_full_environment_objective_function(self):
         for AL, AR, C in self.As:
             AL, AR = AL.data[0], AR.data[0]
 
@@ -29,11 +27,16 @@ class TestRepresent(unittest.TestCase):
             self.assertTrue(Map(AR, AR).is_right_eigenvector(I))
             self.assertTrue(Map(AR, AR).is_left_eigenvector(l))
 
+    def test_full_environment_objective_function(self):
+        for AL, AR, C in self.As:
+            AL, AR = AL.data[0], AR.data[0]
+
             # make unitaries
             U = FullStateTensor(tensor_to_unitary(AL))
             V = FullEnvironment(environment_to_unitary(C))
 
             self.assertTrue(full_tomography_env_objective_function(U, V)<1e-6)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
