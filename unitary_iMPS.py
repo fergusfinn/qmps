@@ -22,6 +22,43 @@ from scipy.optimize import approx_fprime
 
 from xmps.spin import U4 # 15d real parametrisation of SU(2)
 from xmps.spin import N_body_spins
+from scipy.linalg import null_space
+
+def environment_to_unitary(v):
+    '''put matrix in form
+              ↑ ↑
+              | |
+              ___
+               v
+              ___
+              | |
+      '''
+    v = v.reshape(1, -1)/norm(v)
+    vs = null_space(v).conj().T
+    return concatenate([v, vs], 0).T
+
+def left_orthogonal_tensor_to_unitary(A):
+    """given a left isometric tensor A, put into a unitary
+    """
+    d, D, _ = A.shape
+    iso = A.transpose([1, 0, 2]).reshape(D*d, D)
+    assert allclose(cT(iso)@iso, eye(2)) # left isometry
+    U = unitary_extension(iso)
+    assert allclose(U@cT(U), eye(4)) # unitary
+    assert allclose(cT(U)@U, eye(4)) # unitary
+    assert allclose(U[:iso.shape[0], :iso.shape[1]], iso) # with the isometry in it
+    assert allclose(tensordot(U.reshape(2, 2, 2, 2), array([1, 0]), [2, 0]).reshape(4, 2), 
+                    iso)
+
+    #  ↑ j
+    #  | |
+    #  ---       
+    #   u  = i--A--j
+    #  ---      |
+    #  | |      σ
+    #  i σ 
+
+    return U
 
 #########################################################################
 #########################################################################
@@ -58,7 +95,7 @@ class State2(cirq.ThreeQubitGate):
         return (Environment2(self.V)(*qubits[1:3]),
                 StateTensor2(self.U)(*qubits[:2])) 
     def _circuit_diagram_info_(self, args):
-      return 'I\n|\nU', 'V\n|\nU', 'V\n|\nI'
+      return 'I-U', 'V-U', 'V-I'
 
 def mat(v):
     '''helper function - put list of elements (real, imaginary) in a square matrix'''
