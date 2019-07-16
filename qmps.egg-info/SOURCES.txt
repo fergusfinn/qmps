@@ -1,0 +1,5 @@
+README.md
+qmps.egg-info/PKG-INFO
+qmps.egg-info/SOURCES.txt
+qmps.egg-info/dependency_links.txt
+qmps.egg-info/top_level.txt
