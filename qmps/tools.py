@@ -1,31 +1,20 @@
 import cirq
 
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
-<<<<<<< HEAD
-from numpy import array
+from numpy import array, pi as π, arcsin, sqrt, real, imag, split
+from numpy.random import rand, randint
 from numpy import zeros, block
 from math import log as mlog
 def log2(x): return mlog(x, 2)
-from scipy.linalg import norm
-from scipy.linalg import null_space
+from scipy.linalg import null_space, norm, svd
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 import os
 from typing import Callable, List, Dict
 import cirq
-
-=======
-from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy import diag
 
-from numpy.random import rand, randint
-from numpy.linalg import svd
-
-from math import log as mlog
-def log2(x): return mlog(x, 2)
-
-from scipy.linalg import null_space, norm
 
 
 def svals(A):
@@ -45,7 +34,7 @@ def eye_like(A):
     """eye_like: identity same shape as A
     """
     return eye(A.shape[0])
->>>>>>> 40a121981649407445722eead9f9710fdcef4070
+
 
 def cT(tensor):
     """H: Hermitian conjugate of last two indices of a tensor
@@ -96,8 +85,6 @@ def environment_to_unitary(v):
     vs = null_space(v).conj().T
     return concatenate([v, vs], 0).T
 
-<<<<<<< HEAD
-=======
 def environment_from_unitary(u):
     '''matrix out of form
               ↑ ↑
@@ -108,7 +95,6 @@ def environment_from_unitary(u):
               | |
       '''
     return (u@array([1, 0, 0, 0])).reshape(2, 2)
->>>>>>> 40a121981649407445722eead9f9710fdcef4070
 
 def tensor_to_unitary(A, testing=False):
     """given a left isometric tensor A, put into a unitary.
@@ -139,8 +125,9 @@ def tensor_to_unitary(A, testing=False):
 
 
 def unitary_to_tensor(U):
-<<<<<<< HEAD
-    return tensordot(U.reshape(*2*int(log2(U.shape[0]))*[2]), array([1, 0]), [2, 0]).transpose([1, 0, 2])
+    n = int(log2(U.shape[0]))
+    return tensordot(U.reshape(*2 * n * [2]), array([1, 0]), [n, 0]).reshape(2 ** (n - 1), 2, 2 ** (n - 1)).transpose(
+    [1, 0, 2])
 
 
 def cirq_qubits(num):
@@ -222,9 +209,6 @@ class Optimizer:
     def update_final_circuits(self):
         pass
 
-=======
-    n = int(log2(U.shape[0]))
-    return tensordot(U.reshape(*2*n*[2]), array([1, 0]), [n, 0]).reshape(2**(n-1), 2, 2**(n-1)).transpose([1, 0, 2])
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     """sampled_bloch_vector_of: get bloch vector of a 
@@ -298,4 +282,3 @@ def test_unitary(length, depth=10, p=0.5):
             else:
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
->>>>>>> 40a121981649407445722eead9f9710fdcef4070
