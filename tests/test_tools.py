@@ -23,7 +23,7 @@ class TestTools(unittest.TestCase):
         N = 10
         As = []
         for i in range(N):
-            U = test_unitary(4, 4)._unitary_()
+            U = random_unitary(4, 4)._unitary_()
             if U.shape[0] == 16:
                 As.append(unitary_to_tensor(U))
         
@@ -31,7 +31,7 @@ class TestTools(unittest.TestCase):
             self.assertTrue(allclose(A.shape, (2, 8, 8)))
 
     def test_sampled_bloch_vector_of(self):
-        circuit = random_unitary(5)
+        circuit = random_circuit(5)
         sim = cirq.Simulator()
         v1 = sim.simulate(circuit).bloch_vector_of(list(circuit.all_qubits())[0])
         v2 = sampled_bloch_vector_of(list(circuit.all_qubits())[0], circuit, 100000)
