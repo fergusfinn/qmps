@@ -2,14 +2,19 @@ import cirq
 
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
+from numpy import diag
 
 from numpy.random import rand, randint
+from numpy.linalg import svd
 
 from math import log as mlog
 def log2(x): return mlog(x, 2)
 
 from scipy.linalg import null_space, norm
 
+
+def svals(A):
+    return svd(A)[1]
 
 def from_real_vector(v):
     '''helper function - put list of elements (real, imaginary) into a complex vector'''
@@ -111,7 +116,8 @@ def tensor_to_unitary(A, testing=False):
     return U
 
 def unitary_to_tensor(U):
-    return tensordot(U.reshape(*2*int(log2(U.shape[0]))*[2]), array([1, 0]), [2, 0]).transpose([1, 0, 2])
+    n = int(log2(U.shape[0]))
+    return tensordot(U.reshape(*2*n*[2]), array([1, 0]), [n, 0]).reshape(2**(n-1), 2, 2**(n-1)).transpose([1, 0, 2])
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     """sampled_bloch_vector_of: get bloch vector of a 
@@ -158,6 +164,28 @@ def random_unitary(length, depth=10, p=0.5):
         else:
             # two qubit gate
             i = randint(0, length-1)
+            if rand()>0.5:
+                circuit.append(cirq.CNOT(qubits[i], qubits[i+1]))
+            else:
+                circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
+    return circuit
+
+def test_unitary(length, depth=10, p=0.5):
+    qubits = cirq.LineQubit.range(length)
+    circuit = cirq.Circuit()
+
+    def U(i):
+        """U: Random SU(2) element"""
+        ψ = 2*π*rand()
+        χ = 2*π*rand()
+        φ = arcsin(sqrt(rand()))
+        for g in [cirq.Rz(χ+ψ), cirq.Ry(2*φ), cirq.Rz(χ-ψ)]:
+            yield g(cirq.LineQubit(i))
+    for _ in range(depth):
+        for i in range(length):
+            circuit.append(U(i))
+            # two qubit gate
+        for i in range(length-1):
             if rand()>0.5:
                 circuit.append(cirq.CNOT(qubits[i], qubits[i+1]))
             else:

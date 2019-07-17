@@ -19,6 +19,17 @@ class TestTools(unittest.TestCase):
             AL_new = unitary_to_tensor(U)
             self.assertTrue(allclose(AL_new, AL[0]))
 
+    def test_unitary_to_tensor(self):
+        N = 10
+        As = []
+        for i in range(N):
+            U = test_unitary(4, 4)._unitary_()
+            if U.shape[0] == 16:
+                As.append(unitary_to_tensor(U))
+        
+        for A in As:
+            self.assertTrue(allclose(A.shape, (2, 8, 8)))
+
     def test_sampled_bloch_vector_of(self):
         circuit = random_unitary(5)
         sim = cirq.Simulator()
