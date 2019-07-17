@@ -1,10 +1,56 @@
-from .tools import cT, direct_sum, unitary_extension, Optimizer, cirq_qubits, log2, split_2s
+from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, \
+    from_real_vector, to_real_vector, environment_to_unitary
 from typing import List, Callable, Dict
+from math import log as mlog
+def log2(x): return mlog(x, 2)
 from numpy import concatenate, allclose, tensordot, swapaxes
+from numpy.random import randn
 from scipy.linalg import null_space, norm
+from scipy.optimize import minimize
 import cirq
 import numpy as np
 
+
+def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
+    '''NOTE: just here till we can refactor optimize.py
+       return v satisfying
+
+        | | |   | | | 
+        | ---   | | |       
+        |  v    | | |  
+        | ---   | | |  
+        | | |   | | |           (2)
+        --- |   --- |  
+         u  |    v  |  
+        --- |   --- |  
+        | | | = | | |             
+        j | |   j | |
+        '''
+
+    def f_obj(v, U=U):
+        """f_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, environment_to_unitary to 
+           turn it into a unitary, then calculate the objective function.
+        """
+        r = full_tomography_env_objective_function(FullStateTensor(U), 
+                FullEnvironment(environment_to_unitary(from_real_vector(v))))
+        return r
+
+    def s_obj(v, U=U):
+        """s_obj: take an 8d real vector, use mat to turn it into a 4d complex vector, environment_to_unitary to 
+           turn it into a unitary, then calculate the (sampled) objective function.
+        """
+        r = sampled_env_objective_function(FullStateTensor(U), 
+                FullEnvironment(environment_to_unitary(from_real_vector(v))))
+        return r
+
+    obj = s_obj if sample else f_obj
+
+    res = minimize(obj, to_real_vector(C0.reshape(-1)), method='Nelder-Mead')
+    return environment_to_unitary(from_real_vector(res.x))
+
+#######################
+# Objective Functions #
+#######################
 
 def sampled_tomography_env_objective_function(U, V, reps=10000):
     """sampled_environment_objective_function: return norm of difference of (sampled) bloch vectors
@@ -22,13 +68,12 @@ def sampled_tomography_env_objective_function(U, V, reps=10000):
         ρ | |   σ | |  
 
     """
-    U, V = U._unitary_(), V._unitary_()
     qbs = cirq.LineQubit.range(3)
     r = 0
 
-    LHS, RHS = Circuit(), Circuit()
-    LHS.append([State2(U, V)(*qbs)])
-    RHS.append([Environment2(V)(*qbs[:2])])
+    LHS, RHS = cirq.Circuit(), cirq.Circuit()
+    LHS.append([State(U, V)(*qbs)])
+    RHS.append([V(*qbs[:2])])
 
     LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
@@ -51,22 +96,87 @@ def full_tomography_env_objective_function(U, V):
         j | |   j | |  
 
     """
-    U, V = U._unitary_(), V._unitary_()
     qbs = cirq.LineQubit.range(3)
     r = 0
 
-    LHS, RHS = Circuit(), Circuit()
-    LHS.append([State2(U, V)(*qbs)])
-    RHS.append([Environment2(V)(*qbs[:2])])
+    LHS, RHS = cirq.Circuit(), cirq.Circuit()
+    LHS.append([State(U, V)(*qbs)])
+    RHS.append([V(*qbs[:2])])
 
-    sim = Simulator()
+    sim = cirq.Simulator()
     LHS = sim.simulate(LHS).bloch_vector_of(qbs[0])
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
 
+############################################
+# Tensor, StateTensor, Environment, State  #
+############################################ 
+
+class Tensor(cirq.Gate):
+    def __init__(self, unitary, symbol):
+        self.U = unitary
+        self.n_qubits = int(log2(unitary.shape[0]))
+        self.symbol = symbol
+
+    def _unitary_(self):
+        return self.U
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _circuit_diagram_info_(self, args):
+        return [self.symbol] * self.n_qubits
+
+    def __pow__(self, power, modulo=None):
+        if power == -1:
+            return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
+        else:
+            return self.__class__(np.linalg.multi_dot([self.U] * power))
+
+
+class StateTensor(Tensor):
+    pass
+
+
+class Environment(Tensor):
+    pass
+
+
+class FullStateTensor(StateTensor):
+    """StateTensor: represent state tensor as a unitary"""
+
+    def __init__(self, unitary, symbol='U'):
+        super().__init__(unitary, symbol)
+
+    def raise_power(self, power):
+        return PowerCircuit(state=self, power=power)
+
+
+class FullEnvironment(Environment):
+    """Environment: represents the environment tensor as a unitary"""
+
+    def __init__(self, unitary, symbol='V'):
+        super().__init__(unitary, symbol)
+
+
+class PowerCircuit(cirq.Gate):
+    def __init__(self, state:FullStateTensor, power):
+        self.power = power
+        self.state = state
+
+    def _decompose_(self, qubits):
+        n_u_qubits = self.state.num_qubits()
+        return (FullStateTensor(self.state.U)(*qubits[i:n_u_qubits + i]) for i in reversed(range(self.power)))
+
+    def num_qubits(self):
+        return self.state.num_qubits() + (self.power - 1)
+
+    def _set_power(self, power):
+        self.power = power
+
 
 class State(cirq.Gate):
-    def __init__(self, u, v, n: int):
+    def __init__(self, u: cirq.Gate, v: cirq.Gate, n=1):
         self.u = u
         self.v = v
         self.n_phys_qubits = n
@@ -142,20 +252,6 @@ class Tensor(cirq.Gate):
             return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
         else:
             return self.__class__(np.linalg.multi_dot([self.U] * power))
-
-
-class FullStateTensor(Tensor):
-    """StateTensor: represent state tensor as a unitary"""
-
-    def __init__(self, unitary, symbol='U'):
-        super().__init__(unitary, symbol)
-
-
-class FullEnvironment(Tensor):
-    """Environment: represents the environment tensor as a unitary"""
-
-    def __init__(self, unitary, symbol='V'):
-        super().__init__(unitary, symbol)
 
 
 class HorizontalSwapTest(cirq.Gate):

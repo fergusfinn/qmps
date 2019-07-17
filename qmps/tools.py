@@ -1,4 +1,7 @@
+import cirq
+
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
+<<<<<<< HEAD
 from numpy import array
 from numpy import zeros, block
 from math import log as mlog
@@ -12,6 +15,37 @@ import os
 from typing import Callable, List, Dict
 import cirq
 
+=======
+from numpy import array, pi as π, arcsin, sqrt, real, imag, split
+from numpy import diag
+
+from numpy.random import rand, randint
+from numpy.linalg import svd
+
+from math import log as mlog
+def log2(x): return mlog(x, 2)
+
+from scipy.linalg import null_space, norm
+
+
+def svals(A):
+    return svd(A)[1]
+
+def from_real_vector(v):
+    '''helper function - put list of elements (real, imaginary) into a complex vector'''
+    re, im = split(v, 2)
+    return (re+im*1j)
+
+def to_real_vector(A):
+    '''takes a matrix, breaks it down into a real vector'''
+    re, im = real(A).reshape(-1), imag(A).reshape(-1)  
+    return concatenate([re, im], axis=0)
+
+def eye_like(A):
+    """eye_like: identity same shape as A
+    """
+    return eye(A.shape[0])
+>>>>>>> 40a121981649407445722eead9f9710fdcef4070
 
 def cT(tensor):
     """H: Hermitian conjugate of last two indices of a tensor
@@ -62,6 +96,19 @@ def environment_to_unitary(v):
     vs = null_space(v).conj().T
     return concatenate([v, vs], 0).T
 
+<<<<<<< HEAD
+=======
+def environment_from_unitary(u):
+    '''matrix out of form
+              ↑ ↑
+              | |
+              ___
+               v   
+              ___
+              | |
+      '''
+    return (u@array([1, 0, 0, 0])).reshape(2, 2)
+>>>>>>> 40a121981649407445722eead9f9710fdcef4070
 
 def tensor_to_unitary(A, testing=False):
     """given a left isometric tensor A, put into a unitary.
@@ -92,6 +139,7 @@ def tensor_to_unitary(A, testing=False):
 
 
 def unitary_to_tensor(U):
+<<<<<<< HEAD
     return tensordot(U.reshape(*2*int(log2(U.shape[0]))*[2]), array([1, 0]), [2, 0]).transpose([1, 0, 2])
 
 
@@ -174,3 +222,80 @@ class Optimizer:
     def update_final_circuits(self):
         pass
 
+=======
+    n = int(log2(U.shape[0]))
+    return tensordot(U.reshape(*2*n*[2]), array([1, 0]), [n, 0]).reshape(2**(n-1), 2, 2**(n-1)).transpose([1, 0, 2])
+
+def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
+    """sampled_bloch_vector_of: get bloch vector of a 
+    specified qubit by sampling. 
+
+    :param qubit: qubit to sample bloch vector of 
+    :param circuit: circuit to evaluate before sampling
+    :param reps: number of measurements on each qubit
+    """
+    sim = cirq.Simulator()
+    C = circuit.copy()
+    C.append([cirq.measure(qubit, key='z')])
+    meas = sim.run(C, repetitions=reps).measurements['z']
+    z = array(list(map(int, meas))).mean()
+
+    C = circuit.copy()
+    C.append([cirq.inverse(cirq.S(qubit)), cirq.H(qubit), cirq.measure(qubit, key='y')])
+    meas = sim.run(C, repetitions=reps).measurements['y']
+    y = array(list(map(int, meas))).mean()
+
+    C = circuit.copy()
+    C.append([cirq.H(qubit), cirq.measure(qubit, key='x')])
+    meas = sim.run(C, repetitions=reps).measurements['x']
+    x = array(list(map(int, meas))).mean()
+
+    return -2*array([x, y, z])+1
+
+def random_unitary(length, depth=10, p=0.5):
+    '''10.1103/PhysRevA.75.062314'''
+    qubits = cirq.LineQubit.range(length)
+    circuit = cirq.Circuit()
+
+    def U(i):
+        """U: Random SU(2) element"""
+        ψ = 2*π*rand()
+        χ = 2*π*rand()
+        φ = arcsin(sqrt(rand()))
+        for g in [cirq.Rz(χ+ψ), cirq.Ry(2*φ), cirq.Rz(χ-ψ)]:
+            yield g(cirq.LineQubit(i))
+    for i in range(depth):
+        if rand()>p:
+            # one qubit gate
+            circuit.append(U(randint(0, length)))
+        else:
+            # two qubit gate
+            i = randint(0, length-1)
+            if rand()>0.5:
+                circuit.append(cirq.CNOT(qubits[i], qubits[i+1]))
+            else:
+                circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
+    return circuit
+
+def test_unitary(length, depth=10, p=0.5):
+    qubits = cirq.LineQubit.range(length)
+    circuit = cirq.Circuit()
+
+    def U(i):
+        """U: Random SU(2) element"""
+        ψ = 2*π*rand()
+        χ = 2*π*rand()
+        φ = arcsin(sqrt(rand()))
+        for g in [cirq.Rz(χ+ψ), cirq.Ry(2*φ), cirq.Rz(χ-ψ)]:
+            yield g(cirq.LineQubit(i))
+    for _ in range(depth):
+        for i in range(length):
+            circuit.append(U(i))
+            # two qubit gate
+        for i in range(length-1):
+            if rand()>0.5:
+                circuit.append(cirq.CNOT(qubits[i], qubits[i+1]))
+            else:
+                circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
+    return circuit
+>>>>>>> 40a121981649407445722eead9f9710fdcef4070
