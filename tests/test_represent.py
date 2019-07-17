@@ -1,3 +1,11 @@
+import unittest
+
+from numpy.random import randn
+ 
+from xmps.iMPS import iMPS, Map
+
+from qmps.tools import tensor_to_unitary, unitary_to_tensor, eye_like, environment_to_unitary
+from qmps.represent import FullStateTensor, FullEnvironment
 from qmps.represent import *
 from xmps import Map
 
@@ -7,8 +15,6 @@ class TestRepresent(unittest.TestCase):
         N = 3  
         self.xs = [randn(8, 8)+1j*randn(8, 8) for _ in range(N)]
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
-
-    def test_full_environment_objective_function(self):
         for AL, AR, C in self.As:
             AL, AR = AL.data[0], AR.data[0]
 
@@ -23,8 +29,18 @@ class TestRepresent(unittest.TestCase):
             self.assertTrue(Map(AR, AR).is_right_eigenvector(I))
             self.assertTrue(Map(AR, AR).is_left_eigenvector(l))
 
-            # make unitaries
-            U = unitary_from_tensor(AL[0])
-            V = environment_to_unitary(C)
+    def test_full_environment_objective_function(self):
+        for AL, AR, C in self.As:
+            AL, AR = AL.data[0], AR.data[0]
 
-            self.assertTrue(full_env_obj_fun(U, V)<1e-6)
+            # make unitaries
+            U = FullStateTensor(tensor_to_unitary(AL))
+            V = FullEnvironment(environment_to_unitary(C))
+
+            self.assertTrue(full_tomography_env_objective_function(U, V)<1e-6)
+            self.assertTrue(sampled_tomography_env_objective_function(U, V, 10000)<1e-1)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=1)
+>>>>>>> cff0b4fb44885771e64436dacef4d5edd8204369
