@@ -1,13 +1,16 @@
-from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, \
-    from_real_vector, to_real_vector, environment_to_unitary
+import cirq
+
+from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
+from .tools import from_real_vector, to_real_vector, environment_to_unitary
+
 from typing import List, Callable, Dict
-from math import log as mlog
-def log2(x): return mlog(x, 2)
-from numpy import concatenate, allclose, tensordot, swapaxes
+
+from numpy import concatenate, allclose, tensordot, swapaxes, log2
 from numpy.random import randn
+
 from scipy.linalg import null_space, norm
 from scipy.optimize import minimize
-import cirq
+
 import numpy as np
 
 
@@ -48,6 +51,7 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     res = minimize(obj, to_real_vector(C0.reshape(-1)), method='Nelder-Mead')
     return environment_to_unitary(from_real_vector(res.x))
 
+def get_env_exact(U):
 #######################
 # Objective Functions #
 #######################
