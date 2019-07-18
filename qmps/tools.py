@@ -196,11 +196,13 @@ class Optimizer:
             print(f'Reason for termination is {self.optimized_result.message}')
         return self
 
-    def plot_convergence(self, file):
+    def plot_convergence(self, file, exact_value=None):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         plt.figure()
         x = range(len(self.obj_fun_values))
         plt.plot(x, self.obj_fun_values)
+        if exact_value is not None:
+            plt.axhline(exact_value, c='r')
         plt.xlabel('iterations')
         plt.ylabel('objective function value')
         plt.show()

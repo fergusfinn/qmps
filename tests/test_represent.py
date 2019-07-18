@@ -43,4 +43,3 @@ class TestRepresent(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
->>>>>>> cff0b4fb44885771e64436dacef4d5edd8204369

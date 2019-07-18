@@ -1,18 +1,27 @@
 import cirq
 
+from xmps.iMPS import iMPS, TransferMatrix
+
 from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
 from .tools import from_real_vector, to_real_vector, environment_to_unitary
+from .tools import unitary_to_tensor
 
 from typing import List, Callable, Dict
 
 from numpy import concatenate, allclose, tensordot, swapaxes, log2
+from numpy.linalg import eig
+from numpy import diag
 from numpy.random import randn
 
-from scipy.linalg import null_space, norm
+from scipy.linalg import null_space, norm, cholesky
 from scipy.optimize import minimize
+from scipy.linalg import polar
 
 import numpy as np
 
+def sqrtm(X):
+    Λ, V = eig(X)
+    return V@csqrt(diag(X))
 
 def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     '''NOTE: just here till we can refactor optimize.py
@@ -52,6 +61,10 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     return environment_to_unitary(from_real_vector(res.x))
 
 def get_env_exact(U):
+    η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
+    return environment_to_unitary(cholesky(r))
+
+
 #######################
 # Objective Functions #
 #######################

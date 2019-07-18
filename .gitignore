@@ -4,6 +4,7 @@ idmrg.py*
 *.swo
 *.swn
 *.swm
+*.npy
 
 old/
 

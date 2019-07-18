@@ -1,26 +1,54 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .tools import environment_from_unitary, Optimizer
-from numpy import array, real
+from .represent import get_env_exact
+from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from numpy import array, real, kron, eye
+from numpy.linalg import qr
 from numpy.random import randn
 
 from xmps.spin import N_body_spins, U4
 
 from scipy.optimize import approx_fprime
 
-def NonSparseEnergyOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate,
-                 objective_function: Callable, qaoa_depth: int = 1,
-                 initial_guess = None, settings: Dict = None):
+from typing import Callable, List, Dict
 
-    n = self.u.num_qubits()
-    initial_guess = randn
-    super().__init__(self, u_original: cirq.Gate, v_original: cirq.Gate,
-                     objective_function: Callable, qaoa_depth: int = 1,
-                     initial_guess: List = None, settings: Dict = None)
+class NonSparseFullEnergyOptimizer(Optimizer):
+    def __init__(self, J, λ, D=2, initial_guess=None, settings: Dict = None):
+        if D!=2:
+            raise NotImplementedError
+        self.J = J
+        self.λ = λ
+        self.D = D
+        self.d = 2
+        initial_guess = (randn(15) if initial_guess is None else initial_guess)
+        u_original = FullStateTensor(U4(initial_guess))
+        v_original = None
+
+        super().__init__(u_original, v_original, objective_function = None,
+                         initial_guess=initial_guess, settings=None)
 
     def objective_function(self, u_params):
-        pass
+        U = U4(u_params)
+        V = get_env_exact(U)
+
+        qbs = cirq.LineQubit.range(4)
+        sim = cirq.Simulator()
+
+        C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
+        #IZZI = 4*N_body_spins(0.5, 2, 4)[2]@N_body_spins(0.5, 3, 4)[2]
+        #IIXI = 2*N_body_spins(0.5, 3, 4)[0]
+        #IXII = 2*N_body_spins(0.5, 2, 4)[0]
+        J=self.J; g=self.λ;
+        H_bond = array([[J,g/2,g/2,0], 
+                        [g/2,-J,0,g/2], 
+                        [g/2,0,-J,g/2], 
+                        [0,g/2,g/2,J]])
+        H = kron(kron(eye(2), H_bond), eye(2))
+        #H = self.J*IZZI+self.λ*(IXII+IIXI)/2
+        ψ = sim.simulate(C).final_state
+
+        f =  real(ψ.conj().T@H@ψ)
+        return f
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
