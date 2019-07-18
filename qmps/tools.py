@@ -155,7 +155,7 @@ class Optimizer:
         self.store_values = False
         self.optimized_result = None
         self.circuit = None
-        self.initial_guess = initial_guess if initial_guess else np.random.random(2*qaoa_depth)
+        self.initial_guess = initial_guess if initial_guess is not None else np.random.random(2*qaoa_depth)
         self.bond_dim = 2**(self.u.num_qubits()-1)
 
         self._settings_ = settings if settings else{
@@ -185,7 +185,7 @@ class Optimizer:
 
         kwargs = {'fun': self.objective_function,
                   'x0': self.initial_guess,
-                  'method': self.setting['method'],
+                  'method': self._settings_['method'],
                   'tol': self._settings_['tol'],
                   'options': options,
                   'callback': self.callback_store_values if self._settings_['store_values'] else None}
@@ -194,6 +194,7 @@ class Optimizer:
         self.update_final_circuits()
         if self._settings_['verbose']:
             print(f'Reason for termination is {self.optimized_result.message}')
+        return self
 
     def plot_convergence(self, file):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -208,7 +209,6 @@ class Optimizer:
 
     def update_final_circuits(self):
         pass
-
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     """sampled_bloch_vector_of: get bloch vector of a 
