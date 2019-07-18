@@ -2,23 +2,19 @@ import cirq
 
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
-from numpy import diag
+from numpy import zeros, block, diag, log2
 
 from numpy.random import rand, randint, randn
 from numpy.linalg import svd
-
-from numpy import zeros, block
-from math import log as mlog
-def log2(x): return mlog(x, 2)
-from scipy.linalg import null_space, norm, svd
 import numpy as np
-import matplotlib.pyplot as plt
+
+from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
+
+import matplotlib.pyplot as plt
+
 import os
 from typing import Callable, List, Dict
-import cirq
-from numpy import diag
-
 
 
 def svals(A):

@@ -1,12 +1,26 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .tools import environment_from_unitary
+from .tools import environment_from_unitary, Optimizer
 from numpy import array, real
 from numpy.random import randn
 
 from xmps.spin import N_body_spins, U4
 
 from scipy.optimize import approx_fprime
+
+def NonSparseEnergyOptimizer(Optimizer):
+    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate,
+                 objective_function: Callable, qaoa_depth: int = 1,
+                 initial_guess = None, settings: Dict = None):
+
+    n = self.u.num_qubits()
+    initial_guess = randn
+    super().__init__(self, u_original: cirq.Gate, v_original: cirq.Gate,
+                     objective_function: Callable, qaoa_depth: int = 1,
+                     initial_guess: List = None, settings: Dict = None)
+
+    def objective_function(self, u_params):
+        pass
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
@@ -29,7 +43,7 @@ def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
         C_.append([cirq.H(qbs[2]), cirq.measure(qbs[2], key='x')])
         meas = sim.run(C_, repetitions=reps).measurements['x']
         x = array(list(map(lambda x: 1-2*int(x), meas))).mean()
-        return -J*zz+λ*x
+        return J*zz+λ*x
 
     def full_energy(U, V, λ):
         qbs = cirq.LineQubit.range(4)
@@ -40,9 +54,9 @@ def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
         IIXI = 2*N_body_spins(0.5, 3, 4)[0]
         IXII = 2*N_body_spins(0.5, 2, 4)[0]
         ψ = sim.simulate(C).final_state
-        return real(ψ.conj().T@(-J*IZZI+λ*(IXII+IIXI)/2)@ψ)
+        return real(ψ.conj().T@(J*IZZI+λ*(IXII+IIXI)/2)@ψ)
 
-    def optimize_energy(N=400, env_update=100, ϵ=1e-1, e_fun = sampled_energy if sample else full_energy):
+    def optimize_energy(N=400, env_update=1, ϵ=1e-1, e_fun = sampled_energy if sample else full_energy):
         """minimizes ising energy in a full parametrisation of SU(4)
            u at each time step is a 15d real vector, with U4(u) = exp(-iu⋅σ), 
            σ the vector of generators of SU(4).
