@@ -112,6 +112,7 @@ def full_tomography_env_objective_function(U, V):
 # Tensor, StateTensor, Environment, State  #
 ############################################ 
 
+
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
         self.U = unitary
@@ -232,28 +233,6 @@ class ShallowEnvironment(cirq.Gate):
         return ['V'] * self.n_qubits
 
 
-class Tensor(cirq.Gate):
-    def __init__(self, unitary, symbol):
-        self.U = unitary
-        self.n_qubits = int(log2(unitary.shape[0]))
-        self.symbol = symbol
-
-    def _unitary_(self):
-        return self.U
-
-    def num_qubits(self):
-        return self.n_qubits
-
-    def _circuit_diagram_info_(self, args):
-        return [self.symbol] * self.n_qubits
-
-    def __pow__(self, power, modulo=None):
-        if power == -1:
-            return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
-        else:
-            return self.__class__(np.linalg.multi_dot([self.U] * power))
-
-
 class HorizontalSwapTest(cirq.Gate):
     def __init__(self, u: cirq.Gate, v: cirq.Gate, bond_dim: int):
         self.U = u
@@ -276,7 +255,6 @@ class HorizontalSwapTest(cirq.Gate):
 
 
 class VerticalSwapOptimizer(Optimizer):
-
     def objective_function(self, v_params):
         trial_environment = ShallowEnvironment(self.bond_dim, v_params)
         state = State(self.u, trial_environment, 1)
@@ -359,5 +337,3 @@ class HorizontalSwapOptimizer(Optimizer):
         all_ones = int((2**measure_qubits)-1)
         prob_all_ones = counter[all_ones]/self.reps
         return prob_all_ones
-
-
