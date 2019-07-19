@@ -1,5 +1,3 @@
-import cirq
-
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy.random import rand, randint
@@ -14,21 +12,33 @@ import os
 from typing import Callable, List, Dict
 import cirq
 from numpy import diag
+from scipy.optimize import differential_evolution
 
+
+def get_circuit(state, decomp=None):
+    if decomp == 'Full':
+        return cirq.Circuit.from_ops(cirq.decompose(state(*cirq_qubits(state.num_qubits()))))
+    elif decomp == 'Once':
+        return cirq.Circuit.from_ops(cirq.decompose_once(state(*cirq_qubits(state.num_qubits()))))
+    else:
+        return cirq.Circuit.from_ops(state(*cirq_qubits(state.num_qubits())))
 
 
 def svals(A):
     return svd(A)[1]
+
 
 def from_real_vector(v):
     '''helper function - put list of elements (real, imaginary) into a complex vector'''
     re, im = split(v, 2)
     return (re+im*1j)
 
+
 def to_real_vector(A):
     '''takes a matrix, breaks it down into a real vector'''
     re, im = real(A).reshape(-1), imag(A).reshape(-1)  
     return concatenate([re, im], axis=0)
+
 
 def eye_like(A):
     """eye_like: identity same shape as A
@@ -85,6 +95,7 @@ def environment_to_unitary(v):
     vs = null_space(v).conj().T
     return concatenate([v, vs], 0).T
 
+
 def environment_from_unitary(u):
     '''matrix out of form
               ↑ ↑
@@ -95,6 +106,7 @@ def environment_from_unitary(u):
               | |
       '''
     return (u@array([1, 0, 0, 0])).reshape(2, 2)
+
 
 def tensor_to_unitary(A, testing=False):
     """given a left isometric tensor A, put into a unitary.
@@ -144,12 +156,10 @@ class Optimizer:
     '''
     Base class for optimizers. To specify a new optimization technique simply define a new objective function
     '''
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate,
-                 objective_function: Callable, qaoa_depth: int = 1,
+    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, qaoa_depth: int = 1,
                  initial_guess: List = None, settings: Dict = None):
         self.u = u_original
         self.v = v_original
-        self.obj_fun = objective_function
         self.iters = 0
         self.obj_fun_values = []
         self.store_values = False
@@ -162,7 +172,7 @@ class Optimizer:
                                             'maxiter': 100,
                                             'verbose': False,
                                             'method': 'Nelder-Mead',
-                                            'tol': 1e-5,
+                                            'tol': 1e-8,
                                             'store_values': False
                                             }
 
@@ -185,20 +195,22 @@ class Optimizer:
 
         kwargs = {'fun': self.objective_function,
                   'x0': self.initial_guess,
-                  'method': self.setting['method'],
+                  'method': self._settings_['method'],
                   'tol': self._settings_['tol'],
                   'options': options,
                   'callback': self.callback_store_values if self._settings_['store_values'] else None}
 
         self.optimized_result = minimize(**kwargs)
+        # maybe implement genetic evolution algorithm or particle swarm?
+        # self.optimized_result = differential_evolution(self.objective_function)
         self.update_final_circuits()
         if self._settings_['verbose']:
             print(f'Reason for termination is {self.optimized_result.message}')
 
-    def plot_convergence(self, file):
+    def plot_convergence(self, file=None):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         plt.figure()
-        x = range(len(self.obj_fun_values))
+        x = range(self.iters)
         plt.plot(x, self.obj_fun_values)
         plt.xlabel('iterations')
         plt.ylabel('objective function value')
@@ -236,6 +248,7 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
 
     return -2*array([x, y, z])+1
 
+
 def random_unitary(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
     qubits = cirq.LineQubit.range(length)
@@ -260,6 +273,7 @@ def random_unitary(length, depth=10, p=0.5):
             else:
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
+
 
 def test_unitary(length, depth=10, p=0.5):
     qubits = cirq.LineQubit.range(length)
