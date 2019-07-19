@@ -1,18 +1,19 @@
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
-from numpy.random import rand, randint
-from numpy import zeros, block
-from math import log as mlog
-def log2(x): return mlog(x, 2)
-from scipy.linalg import null_space, norm, svd
+from numpy import zeros, block, diag, log2
+
+from numpy.random import rand, randint, randn
+from numpy.linalg import svd
 import numpy as np
-import matplotlib.pyplot as plt
+
+from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
+
+import matplotlib.pyplot as plt
+
 import os
 from typing import Callable, List, Dict
 import cirq
-from numpy import diag
-from scipy.optimize import differential_evolution
 
 
 def get_circuit(state, decomp=None):
@@ -165,7 +166,7 @@ class Optimizer:
         self.store_values = False
         self.optimized_result = None
         self.circuit = None
-        self.initial_guess = initial_guess if initial_guess else np.random.random(2*qaoa_depth)
+        self.initial_guess = initial_guess if initial_guess is not None else np.random.random(2*qaoa_depth)
         self.bond_dim = 2**(self.u.num_qubits()-1)
 
         self._settings_ = settings if settings else{
@@ -206,12 +207,15 @@ class Optimizer:
         self.update_final_circuits()
         if self._settings_['verbose']:
             print(f'Reason for termination is {self.optimized_result.message}')
+        return self
 
-    def plot_convergence(self, file=None):
+    def plot_convergence(self, file, exact_value=None):
         dir_path = os.path.dirname(os.path.realpath(__file__))
         plt.figure()
         x = range(self.iters)
         plt.plot(x, self.obj_fun_values)
+        if exact_value is not None:
+            plt.axhline(exact_value, c='r')
         plt.xlabel('iterations')
         plt.ylabel('objective function value')
         plt.show()
@@ -220,7 +224,6 @@ class Optimizer:
 
     def update_final_circuits(self):
         pass
-
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     """sampled_bloch_vector_of: get bloch vector of a 
@@ -249,7 +252,7 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
     return -2*array([x, y, z])+1
 
 
-def random_unitary(length, depth=10, p=0.5):
+def random_sparse_circuit(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
     qubits = cirq.LineQubit.range(length)
     circuit = cirq.Circuit()
@@ -275,20 +278,22 @@ def random_unitary(length, depth=10, p=0.5):
     return circuit
 
 
-def test_unitary(length, depth=10, p=0.5):
+def random_circuit(length, depth=10, p=0.5, ψχϕs=None):
     qubits = cirq.LineQubit.range(length)
     circuit = cirq.Circuit()
+    ψχϕs = [[(None, None, None) for _ in range(length)]
+            for _ in range(depth)] if ψχϕs is None else ψχϕs
 
-    def U(i):
+    def U(i, ψ=None, χ=None, ϕ=None):
         """U: Random SU(2) element"""
-        ψ = 2*π*rand()
-        χ = 2*π*rand()
-        φ = arcsin(sqrt(rand()))
+        ψ = 2*π*rand() if ψ is None else ψ
+        χ = 2*π*rand() if χ is None else χ
+        φ = arcsin(sqrt(rand())) if ϕ is None else ϕ
         for g in [cirq.Rz(χ+ψ), cirq.Ry(2*φ), cirq.Rz(χ-ψ)]:
             yield g(cirq.LineQubit(i))
-    for _ in range(depth):
+    for j in range(depth):
         for i in range(length):
-            circuit.append(U(i))
+            circuit.append(U(i, *ψχϕs[j][i]))
             # two qubit gate
         for i in range(length-1):
             if rand()>0.5:
@@ -296,3 +301,14 @@ def test_unitary(length, depth=10, p=0.5):
             else:
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
+
+def random_qaoa_circuit(length, depth=1, βγs=None):
+    """qaoa_circuit: qaoa circuit with qubits - useful for testing.
+    """
+    βγs = [[(randn(), randn()) for _ in range(length)] for _ in range(depth)] if βγs is None else βγs
+
+    qubits = cirq.LineQubit.range(length)
+    c =  cirq.Circuit().from_ops([[[cirq.X(qubit)**β for qubit in qubits]+\
+                                   [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(len(qubits)-1)]
+                                   for β, γ in βγs[i]] for i in range(depth)])
+    return c

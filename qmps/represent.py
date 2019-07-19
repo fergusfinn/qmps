@@ -1,15 +1,27 @@
-from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, \
-    from_real_vector, to_real_vector, environment_to_unitary
-from typing import List, Callable, Dict
-from math import log as mlog
-def log2(x): return mlog(x, 2)
-from numpy import concatenate, allclose, tensordot, swapaxes
-from numpy.random import randn
-from scipy.linalg import null_space, norm
-from scipy.optimize import minimize
 import cirq
+
+from xmps.iMPS import iMPS, TransferMatrix
+
+from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
+from .tools import from_real_vector, to_real_vector, environment_to_unitary
+from .tools import unitary_to_tensor
+
+from typing import List, Callable, Dict
+
+from numpy import concatenate, allclose, tensordot, swapaxes, log2
+from numpy.linalg import eig
+from numpy import diag
+from numpy.random import randn
+
+from scipy.linalg import null_space, norm, cholesky
+from scipy.optimize import minimize
+from scipy.linalg import polar
+
 import numpy as np
 
+def sqrtm(X):
+    Λ, V = eig(X)
+    return V@csqrt(diag(X))
 
 def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     '''NOTE: just here till we can refactor optimize.py
@@ -47,6 +59,11 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
 
     res = minimize(obj, to_real_vector(C0.reshape(-1)), method='Nelder-Mead')
     return environment_to_unitary(from_real_vector(res.x))
+
+def get_env_exact(U):
+    η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
+    return environment_to_unitary(cholesky(r))
+
 
 #######################
 # Objective Functions #
@@ -111,6 +128,7 @@ def full_tomography_env_objective_function(U, V):
 ############################################
 # Tensor, StateTensor, Environment, State  #
 ############################################ 
+
 
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
@@ -232,28 +250,6 @@ class ShallowEnvironment(cirq.Gate):
         return ['V'] * self.n_qubits
 
 
-class Tensor(cirq.Gate):
-    def __init__(self, unitary, symbol):
-        self.U = unitary
-        self.n_qubits = int(log2(unitary.shape[0]))
-        self.symbol = symbol
-
-    def _unitary_(self):
-        return self.U
-
-    def num_qubits(self):
-        return self.n_qubits
-
-    def _circuit_diagram_info_(self, args):
-        return [self.symbol] * self.n_qubits
-
-    def __pow__(self, power, modulo=None):
-        if power == -1:
-            return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
-        else:
-            return self.__class__(np.linalg.multi_dot([self.U] * power))
-
-
 class HorizontalSwapTest(cirq.Gate):
     def __init__(self, u: cirq.Gate, v: cirq.Gate, bond_dim: int):
         self.U = u
@@ -276,7 +272,6 @@ class HorizontalSwapTest(cirq.Gate):
 
 
 class VerticalSwapOptimizer(Optimizer):
-
     def objective_function(self, v_params):
         trial_environment = ShallowEnvironment(self.bond_dim, v_params)
         state = State(self.u, trial_environment, 1)
