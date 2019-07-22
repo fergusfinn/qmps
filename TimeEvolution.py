@@ -300,11 +300,10 @@ def evolve_with_gate(qaoa_depth, evo_steps, hamiltonian):
     evolver = QubitTimeEvolution(u_params=u, bond_dim=2, hamiltonian=hamiltonian,
                                  qaoa_depth=qaoa_depth, evo_qubits=n_qubits)
     qubit_1 = []
-    qubit_2 = []
+    # qubit_2 = []
     # qubit_3 = []
 
     while current_step < evo_steps:
-        print(evolver.u_params, '\n', evolver.v_params)
         evolver.evolve_single_step(False)
         # prepare new optimized state
         u, v = evolver.u_params, evolver.v_params
@@ -316,16 +315,18 @@ def evolve_with_gate(qaoa_depth, evo_steps, hamiltonian):
 
         qubits = cirq_qubits(state.num_qubits())
         qb1 = results.bloch_vector_of(qubits[1])
-        qb2 = results.bloch_vector_of(qubits[2])
+        # qb2 = results.bloch_vector_of(qubits[2])
         # qb3 = results.bloch_vector_of(qubits[3])
 
         qubit_1.append(qb1)
-        qubit_2.append(qb2)
         # qubit_3.append(qb3)
         current_step += 1
-        print(current_step)
 
-    return qubit_1, qubit_2
+        x_evo = [step[0] for step in qubit1]
+        y_evo = [step[1] for step in qubit1]
+        z_evo = [step[2] for step in qubit1 ]
+
+    return x_evo, y_evo, z_evo
 
 
 if __name__ == '__main__':

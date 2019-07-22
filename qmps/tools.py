@@ -172,7 +172,7 @@ class Optimizer:
         self._settings_ = settings if settings else{
                                             'maxiter': 100,
                                             'verbose': False,
-                                            'method': 'Nelder-Mead',
+                                            'method': 'Powell',
                                             'tol': 1e-8,
                                             'store_values': False
                                             }
