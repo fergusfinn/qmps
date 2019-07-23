@@ -1,6 +1,7 @@
 '''circuit_test.py: plots the bond dimension distribution of a random distribution over parametrised circuits'''
 from xmps.iMPS import iMPS
 from qmps.tools import random_circuit, random_qaoa_circuit, unitary_to_tensor, svals
+from qmps.tools import random_full_rank_circuit
 import numpy as np
 import cirq
 from numpy import log2
@@ -8,19 +9,24 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-N = 200
-L = 6
-p = 4
+N = 100
+L = 4
+p = 1
 As = []
+print(random_full_rank_circuit(L, p).to_text_diagram(transpose=True))
 for i in range(N):
-    U = random_circuit(L, p)._unitary_()
+    U = random_full_rank_circuit(L, p)._unitary_()
     As.append(unitary_to_tensor(U))
 
 Ds = []
 for A in tqdm(As):
-    _, _, C = iMPS([A]).mixed()
-    #plt.scatter(list(range(len(svals(C)))), svals(C), marker='x')
-    Ds.append(len(svals(C)[np.logical_not(np.isclose(svals(C), 0))]))
+    try:
+        X = np.diag(iMPS([A]).left_canonicalise().L)
+    except np.linalg.LinAlgError:
+        raise Exception('Not good mps')
+    plt.plot(list(range(len(X))), X, marker='x')
+    plt.ylim([0, 1])
+    Ds.append(len(X[np.logical_not(np.isclose(X, 0))]))
 
 plt.show()
 
@@ -30,5 +36,5 @@ plt.ylabel('frequency')
 plt.title('bond dimension frequency for random p={} CNOT/Rx/Rz circuits'.format(p))
 plt.xticks(list(range(1, L)))
 plt.xlim([2, L])
-plt.savefig('../images/p{}_random_circuit_bond_dimensions.pdf'.format(p))
+#plt.savefig('../images/p{}_random_circuit_bond_dimensions.pdf'.format(p))
 plt.show()

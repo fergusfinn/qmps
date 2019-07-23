@@ -13,11 +13,10 @@ from scipy.optimize import approx_fprime
 from typing import Callable, List, Dict
 
 class NonSparseFullEnergyOptimizer(Optimizer):
-    def __init__(self, J, λ, D=2, initial_guess=None, settings: Dict = None):
+    def __init__(self, H, D=2, initial_guess=None, settings: Dict = None):
         if D!=2:
             raise NotImplementedError
-        self.J = J
-        self.λ = λ
+        self.H = H
         self.D = D
         self.d = 2
         initial_guess = (randn(15) if initial_guess is None else initial_guess)
@@ -35,20 +34,15 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         sim = cirq.Simulator()
 
         C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
-        #IZZI = 4*N_body_spins(0.5, 2, 4)[2]@N_body_spins(0.5, 3, 4)[2]
-        #IIXI = 2*N_body_spins(0.5, 3, 4)[0]
-        #IXII = 2*N_body_spins(0.5, 2, 4)[0]
-        J=self.J; g=self.λ;
-        H_bond = array([[J,g/2,g/2,0], 
-                        [g/2,-J,0,g/2], 
-                        [g/2,0,-J,g/2], 
-                        [0,g/2,g/2,J]])
-        H = kron(kron(eye(2), H_bond), eye(2))
-        #H = self.J*IZZI+self.λ*(IXII+IIXI)/2
+        H = kron(kron(eye(2), self.H), eye(2))
+
         ψ = sim.simulate(C).final_state
 
         f =  real(ψ.conj().T@H@ψ)
         return f
+
+    def update_final_circuits(self):
+        self.U = U4(self.optimized_result.x)
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX

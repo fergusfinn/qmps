@@ -297,3 +297,32 @@ def random_qaoa_circuit(length, depth=1, βγs=None):
                                    [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(len(qubits)-1)]
                                    for β, γ in βγs[i]] for i in range(depth)])
     return c
+
+def random_full_rank_circuit(length, depth, ψχϕs=None):
+    ψχϕs = [[(None, None, None) for _ in range(length)]
+            for _ in range(depth)] if ψχϕs is None else ψχϕs
+    qubits = cirq.LineQubit.range(length)
+    circuit = cirq.Circuit()
+
+    def U(i, ψ=None, χ=None, ϕ=None):
+        """U: Random SU(2) element"""
+        ψ = 2*π*rand() if ψ is None else ψ
+        χ = 2*π*rand() if χ is None else χ
+        φ = arcsin(sqrt(rand())) if ϕ is None else ϕ
+        for g in [cirq.Rz(χ+ψ), cirq.Ry(2*φ), cirq.Rz(χ-ψ)]:
+            yield g(cirq.LineQubit(i))
+    for j in range(depth):
+
+        # Define a parametrisation of su(2**(N-1))
+        # MPS matrices will be U(...), xU(...)
+        for i in range(1, length):
+            circuit.append(U(i, *ψχϕs[j][i]))
+        circuit.append(reversed([cirq.CNOT(qubits[i], qubits[i+1]) for i in range(1, length-1)]))
+
+        # Add on all the rest
+        circuit.append(cirq.H(qubits[0]))
+        circuit.append(cirq.CNOT(qubits[0], qubits[1]))
+        circuit.append(cirq.SWAP(qubits[i], qubits[i+1]) for i in range(length-1))
+        circuit.append(cirq.SWAP(qubits[-1], qubits[0]))
+    return circuit
+
