@@ -463,11 +463,21 @@ def tprint(circuit):
 
 
 def main():
-    u, v = np.random.rand(2), np.random.rand(2)
-
-    swap_state = HorizontalSwapTest(u, v, bond_dim=8)
-    circuit = get_circuit(swap_state, 'Once')
-    save_to_latex(circuit, 'horizontal_swap_bd8_latex.txt')
+    U,V = FullStateTensor(unitary_group.rvs(4)), FullEnvironment(unitary_group.rvs(4))
+    V_inverse = V**-1
+    U_inverse = U**-1
+    H = Tensor(unitary_group.rvs(2), 'H')
+    qubits = cirq_qubits(U.num_qubits()+1)
+    circuit = cirq.Circuit.from_ops(V(*qubits[1:3]),
+                                    U(*qubits[0:2]),
+                                    H(qubits[1]),
+                                    U_inverse(*qubits[0:2]),
+                                    V_inverse(*qubits[1:3]),
+                                    cirq.measure(qubits[0]),
+                                    cirq.measure(qubits[1]),
+                                    cirq.measure(qubits[2])
+                                    )
+    save_to_latex(circuit, 'time_evolution.txt')
 
 
 if __name__ == '__main__':

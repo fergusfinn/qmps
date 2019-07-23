@@ -301,8 +301,8 @@ class VerticalSwapOptimizer(Optimizer):
 
 
 class VerticalSampleSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, objective_function: Callable, reps: int, **kwargs):
-        super().__init__(u_original, v_original, objective_function, **kwargs)
+    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, reps: int, **kwargs):
+        super().__init__(u_original, v_original, **kwargs)
         self.reps = reps
 
     def objective_function(self, params):
@@ -324,10 +324,14 @@ class VerticalSampleSwapOptimizer(Optimizer):
         mean = sum(counter.elements()) / self.reps
         return mean
 
+    def update_final_circuits(self):
+        v_params = self.optimized_result.x
+        self.v = ShallowEnvironment(self.bond_dim, v_params)
 
-class HorizontalSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, objective_function: Callable, reps: int, **kwargs):
-        super().__init__(u_original, v_original, objective_function, **kwargs)
+
+class HorizontalSampleSwapOptimizer(Optimizer):
+    def __init__(self, u_original: cirq.Gate, reps: int, v_original: cirq.Gate = None, **kwargs):
+        super().__init__(u_original, v_original, **kwargs)
         self.reps = reps
 
     def objective_function(self, params):
@@ -354,3 +358,41 @@ class HorizontalSwapOptimizer(Optimizer):
         all_ones = int((2**measure_qubits)-1)
         prob_all_ones = counter[all_ones]/self.reps
         return prob_all_ones
+
+    def update_final_circuits(self):
+        v_params = self.optimized_result.x
+        self.v = ShallowEnvironment(self.bond_dim, v_params)
+
+
+class HorizontalSwapOptimizer(Optimizer):
+    def __init__(self, u_original: cirq.Gate, qaoa_depth: int, v_original: cirq.Gate = None, **kwargs):
+        super().__init__(u_original, v_original, qaoa_depth=qaoa_depth, **kwargs)
+
+    def objective_function(self, params):
+        trial_environment = ShallowEnvironment(self.bond_dim, params)
+        state = State(self.u, trial_environment, 1)
+        horizontal_swap_gates = HorizontalSwapTest(self.u, trial_environment, self.bond_dim)
+
+        # useful qubit numbers to build the circuit
+        state_qubits = state.num_qubits()
+        env_qubits = trial_environment.num_qubits()
+        total_qubits = state_qubits+env_qubits
+        aux_qubs = int(env_qubits/2)
+
+        qubits = cirq_qubits(total_qubits)
+        circuit = cirq.Circuit.from_ops([horizontal_swap_gates(*qubits)])
+        self.circuit = circuit
+
+        simulator = cirq.Simulator()
+        results = simulator.simulate(circuit)
+
+        # identify the reduced density matrix of the measured qubits and minimise the probability of
+        # measuring all |11...>
+        density_matrix_qubits = list(qubits[:aux_qubs]) + list(qubits[state_qubits:state_qubits+aux_qubs])
+        density_matrix = results.density_matrix_of(density_matrix_qubits)
+        prob_all_ones = density_matrix[-1, -1]
+        return np.abs(prob_all_ones)
+
+    def update_final_circuits(self):
+        v_params = self.optimized_result.x
+        self.v = ShallowEnvironment(self.bond_dim, v_params)
