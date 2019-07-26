@@ -2,10 +2,10 @@ import cirq
 
 from xmps.iMPS import iMPS, TransferMatrix
 
-from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s
 from .tools import from_real_vector, to_real_vector, environment_to_unitary
 from .tools import unitary_to_tensor
-
+from xmps.spin import U4
 from typing import List, Callable, Dict
 
 from numpy import concatenate, allclose, tensordot, swapaxes, log2
@@ -276,8 +276,15 @@ class HorizontalSwapTest(cirq.Gate):
 
 
 class VerticalSwapOptimizer(Optimizer):
+    def __init__(self, u_original: cirq.Gate, depth: int, v_original: cirq.Gate = None, **kwargs):
+        super().__init__(u_original, v_original, depth=depth, **kwargs)
+
     def objective_function(self, v_params):
-        trial_environment = ShallowEnvironment(self.bond_dim, v_params)
+        if self.full_param:
+            trial_environment = FullStateTensor(U4(v_params))
+        else:
+            trial_environment = ShallowEnvironment(self.bond_dim, v_params)
+
         state = State(self.u, trial_environment, 1)
 
         qubits = cirq_qubits(state.num_qubits())
@@ -301,7 +308,10 @@ class VerticalSwapOptimizer(Optimizer):
 
     def update_final_circuits(self):
         v_params = self.optimized_result.x
-        self.v = ShallowEnvironment(self.bond_dim, v_params)
+        if self.full_param:
+            self.v = FullStateTensor(U4(v_params))
+        else:
+            self.v = ShallowEnvironment(self.bond_dim, v_params)
 
 
 class VerticalSampleSwapOptimizer(Optimizer):
@@ -369,8 +379,8 @@ class HorizontalSampleSwapOptimizer(Optimizer):
 
 
 class HorizontalSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, qaoa_depth: int, v_original: cirq.Gate = None, **kwargs):
-        super().__init__(u_original, v_original, qaoa_depth=qaoa_depth, **kwargs)
+    def __init__(self, u_original: cirq.Gate, depth: int, v_original: cirq.Gate = None, **kwargs):
+        super().__init__(u_original, v_original, depth=depth, **kwargs)
 
     def objective_function(self, params):
         trial_environment = ShallowEnvironment(self.bond_dim, params)
@@ -400,3 +410,32 @@ class HorizontalSwapOptimizer(Optimizer):
     def update_final_circuits(self):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
+
+
+class U4VerticalSwapOptimizer(Optimizer):
+    def objective_function(self, v_params):
+        trial_environment = FullStateTensor(U4(v_params))
+        state = State(self.u, trial_environment, 1)
+
+        qubits = cirq_qubits(state.num_qubits())
+        aux_qubits = int(self.v.num_qubits() / 2)
+        circuit = cirq.Circuit.from_ops([state.on(*qubits),
+                                         cirq.inverse(trial_environment).on(*(qubits[:aux_qubits] +
+                                                                              qubits[-aux_qubits:]))])
+        self.circuit = circuit
+
+        simulator = cirq.Simulator()
+        results = simulator.simulate(circuit)
+
+        target_qubits = self.get_target_qubits(aux_qubits, state.num_qubits())
+        prob_zeros = sum(np.absolute(results.final_simulator_state.state_vector[:int(target_qubits)])**2)
+        return 1-prob_zeros
+
+    @staticmethod
+    def get_target_qubits(aux_qubits, num_qubits):
+        other_qbs = num_qubits - aux_qubits
+        return 2**other_qbs - 1
+
+    def update_final_circuits(self):
+        v_params = self.optimized_result.x
+        self.v = FullStateTensor(U4(v_params))
