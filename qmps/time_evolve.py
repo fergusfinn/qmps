@@ -66,7 +66,7 @@ class MPSTimeEvolve:
         if self.settings:
             self.EnvOptimizer.settings(self.settings)
 
-        self.EnvOptimizer.get_env()
+        self.EnvOptimizer.optimize()
         return self.EnvOptimizer
 
     def get_u_params(self):

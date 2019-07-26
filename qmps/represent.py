@@ -306,7 +306,7 @@ class VerticalSwapOptimizer(Optimizer):
         other_qbs = num_qubits - aux_qubits
         return 2**other_qbs - 1
 
-    def update_final_circuits(self):
+    def update_state(self):
         v_params = self.optimized_result.x
         if self.full_param:
             self.v = FullStateTensor(U4(v_params))
@@ -338,7 +338,7 @@ class VerticalSampleSwapOptimizer(Optimizer):
         mean = sum(counter.elements()) / self.reps
         return mean
 
-    def update_final_circuits(self):
+    def update_state(self):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
 
@@ -373,7 +373,7 @@ class HorizontalSampleSwapOptimizer(Optimizer):
         prob_all_ones = counter[all_ones]/self.reps
         return prob_all_ones
 
-    def update_final_circuits(self):
+    def update_state(self):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
 
@@ -407,7 +407,7 @@ class HorizontalSwapOptimizer(Optimizer):
         prob_all_ones = density_matrix[-1, -1]
         return np.abs(prob_all_ones)
 
-    def update_final_circuits(self):
+    def update_state(self):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
 
@@ -436,6 +436,6 @@ class U4VerticalSwapOptimizer(Optimizer):
         other_qbs = num_qubits - aux_qubits
         return 2**other_qbs - 1
 
-    def update_final_circuits(self):
+    def update_state(self):
         v_params = self.optimized_result.x
         self.v = FullStateTensor(U4(v_params))

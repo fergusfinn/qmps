@@ -42,7 +42,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         f =  real(ψ.conj().T@H@ψ)
         return f
 
-    def update_final_circuits(self):
+    def update_state(self):
         self.U = U4(self.optimized_result.x)
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
