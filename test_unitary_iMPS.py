@@ -2,10 +2,10 @@ import unittest
 
 from xmps.iMPS import iMPS, Map, TransferMatrix
 from xmps.tensor import embed, deembed
-from unitary_iMPS import *
-from random_unitaries import random_unitary
+from .unitary_iMPS import *
+from .random_unitaries import random_unitary
 import cirq
-
+from .SwapTest import swap_objective_function
 from numpy import allclose
 from numpy.random import randn
 from numpy.linalg import qr
@@ -59,7 +59,16 @@ class TestcMPS(unittest.TestCase):
             # make unitaries
             U = to_unitaries_l([AL])[0]
             V = embed(C)
-            self.assertTrue(sampled_env_obj_fun(U, V, reps=10000)<1e-1)
+            self.assertTrue(sampled_env_obj_fun(U, V, reps=10000) < 1e-1)
+
+    def test_swap_objective_function(self):
+        for AL, AR, C in self.As:
+            AL, AR = AL.data[0], AR.data[0]
+            # make unitaries
+            U = to_unitaries_l([AL])[0]
+            V = embed(C)
+
+            self.assertTrue(swap_objective_function(U, V, reps=10000) < 1e-1)
 
     @unittest.skip('slow')
     def test_sampled_bloch_vector_of(self):
@@ -126,6 +135,5 @@ class TestcMPS(unittest.TestCase):
             plt.ylabel('γ')
             plt.show()
 
-        
 if __name__=='__main__':
     unittest.main(verbosity=1)

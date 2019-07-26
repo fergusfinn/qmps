@@ -2,7 +2,7 @@ import unittest
 
 from xmps.tensor import unitary_extension, embed, H as cT, C as c, T, haar_unitary
 from xmps.tensor import deembed, eye_like
-
+from xmps import iMPS
 from numpy import transpose, prod, array, sum, sqrt, mean, real, imag, concatenate
 from numpy import array, allclose, kron, tensordot, trace as tr, eye
 from numpy.random import randn
@@ -142,6 +142,7 @@ class StateTensor2(cirq.TwoQubitGate):
     def _circuit_diagram_info_(self, args):
         return 'U', 'U'
 
+
 class Environment2(cirq.TwoQubitGate):
     """Environment2: represents the environment tensor as a two qubit unitary"""
     def __init__(self, V):
@@ -150,7 +151,8 @@ class Environment2(cirq.TwoQubitGate):
         return self.V
     def _circuit_diagram_info_(self, args):
         return 'V', 'V'
- 
+
+
 class State2(cirq.ThreeQubitGate):
     """State: combines the StateTensor and Environment into a State"""
     def __init__(self, U, V):
@@ -161,6 +163,7 @@ class State2(cirq.ThreeQubitGate):
                 StateTensor2(self.U)(*qubits[:2])) 
     def _circuit_diagram_info_(self, args):
       return 'I-U', 'V-U', 'V-I'
+
 
 def mat(v):
     '''helper function - put list of elements (real, imaginary) in a square matrix'''
@@ -262,6 +265,7 @@ def full_env_obj_fun(U, V):
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
 
+
 def sampled_env_obj_fun(U, V, reps=10000):
     """sampled_environment_objective_function: return norm of difference of (sampled) bloch vectors
        of qubit 0 in 
@@ -289,8 +293,9 @@ def sampled_env_obj_fun(U, V, reps=10000):
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
     return norm(LHS-RHS)
 
+
 def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
-    ''' return v satisfying
+    '''return v satisfying
 
         | | |   | | | 
         | ---   | | |       
@@ -301,8 +306,7 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
          u  |    v  |  
         --- |   --- |  
         | | | = | | |             
-        j | |   j | |  
-
+        j | |   j | |
         '''
 
     def f_obj(v, U=U):
@@ -323,6 +327,7 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
 
     res = minimize(obj, demat(C0), method='Powell')
     return embed(mat(res.x))
+
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
@@ -442,7 +447,7 @@ class ShallowStateTensor(StateTensor):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [[cirq.X(qubit)**β for qubit in qubits]+\
+        return [[cirq.X(qubit) ** β for qubit in qubits]+\
                 [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
                 for β, γ in split_2s(self.βγs)]
 
@@ -460,6 +465,7 @@ class ShallowEnvironment(Environment):
         return [[cirq.X(qubit)**β for qubit in qubits]+\
                 [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(self.n_qubits-1)]
                 for β, γ in split_2s(self.βγs)]
+
 
 class State(cirq.Gate):
     """State: takes a StateTensor gate and an Environment gate"""
@@ -486,6 +492,7 @@ class State(cirq.Gate):
       d, D = self.d, self.D
       return ('I\n|\nU', *['V\n|\nU']*int(log2(D)), *['V\n|\nI']*int(log2(D)))
 
+
 def shallow_env_obj_fun(U_params, V_params, n):
     qbs = cirq.LineQubit.range(2*n+1)
     r = 0
@@ -500,6 +507,7 @@ def shallow_env_obj_fun(U_params, V_params, n):
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
 
+
 def shallow_sampled_env_obj_fun(U_params, V_params, n, reps=100000):
     qbs = cirq.LineQubit.range(2*n+1)
     r = 0
@@ -512,6 +520,7 @@ def shallow_sampled_env_obj_fun(U_params, V_params, n, reps=100000):
     LHS = sampled_bloch_vector_of(qbs[0], LHS, reps)
     RHS = sampled_bloch_vector_of(qbs[0], RHS, reps)
     return norm(LHS-RHS)
+
 
 def split_2s(x):
     """split_2s: take a list: [β, γ, β, γ, ...], return [[β, γ], [β, γ], ...]
@@ -533,7 +542,9 @@ def get_shallow_env(U_params, n, cut_off_if_less_than=1e-2, p=2, max_iters=500, 
     if noisy:
         print('getting environment: n={}, p={}'.format(n, p))
 
-    def f(βγ): return shallow_env_obj_fun(U_params, βγ, n)
+    def f(βγ):
+        return shallow_env_obj_fun(U_params, βγ, n)
+
     βγ = randn(p*2)
     w = schedule
     candidate = βγ
@@ -555,6 +566,7 @@ def get_shallow_env(U_params, n, cut_off_if_less_than=1e-2, p=2, max_iters=500, 
         βγ = βγ - dβγ
 
     return βγ
+
 
 def optimize_ising(D, J, λ, p=1, max_iters=1000, env_update=10, ϵ=1e-1, w=0.5, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
