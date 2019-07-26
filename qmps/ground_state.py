@@ -13,9 +13,19 @@ from scipy.optimize import approx_fprime
 from typing import Callable, List, Dict
 
 class NonSparseFullEnergyOptimizer(Optimizer):
-    def __init__(self, H, D=2, initial_guess=None, settings: Dict = None):
+    """NonSparseFullEnergyOptimizer
+
+    NonSparse: not a low depth variational optimizer
+    Full: simulates the full wavefunction i.e. not via sampling"""
+    def __init__(self, 
+                 H, 
+                 D=2, 
+                 get_env_function=get_env_exact,
+                 initial_guess=None, 
+                 settings: Dict = None):
+        self.get_env = get_env_function
         if D!=2:
-            raise NotImplementedError
+            raise NotImplementedError('D>2 not implemented')
         self.H = H
         self.D = D
         self.d = 2
@@ -28,7 +38,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
 
     def objective_function(self, u_params):
         U = U4(u_params)
-        V = get_env_exact(U)
+        V = self.get_env(U)
         assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
         qbs = cirq.LineQubit.range(4)
@@ -44,6 +54,27 @@ class NonSparseFullEnergyOptimizer(Optimizer):
 
     def update_final_circuits(self):
         self.U = U4(self.optimized_result.x)
+
+class SparseFullEnergyOptimizer(Optimizer):
+    def __init__(self, 
+                 H, 
+                 D=2, 
+                 get_env_function=get_env_exact,
+                 initial_guess=None, 
+                 settings: Dict = None):
+        self.get_env = get_env_function
+        if D!=2:
+            raise NotImplementedError('D>2 not implemented')
+        self.H = H
+        self.D = D
+        self.d = 2
+        initial_guess = (randn(15) if initial_guess is None else initial_guess)
+        u_original = FullStateTensor(U4(initial_guess))
+        v_original = None
+
+        super().__init__(u_original, v_original,
+                         initial_guess=initial_guess, settings=None)
+
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX

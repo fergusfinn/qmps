@@ -61,6 +61,10 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     return environment_to_unitary(from_real_vector(res.x))
 
 def get_env_exact(U):
+    """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
+
+    :param U:
+    """
     η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
     return environment_to_unitary(cholesky(r).conj().T)
 

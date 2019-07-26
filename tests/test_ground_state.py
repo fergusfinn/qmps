@@ -20,9 +20,9 @@ class TestGroundState(unittest.TestCase):
         self.xs = [randn(8, 8)+1j*randn(8, 8) for _ in range(N)]
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
 
-    def test_optimize_ising(self):
+    def test_NonSparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
-            gs = [2]
+            gs = np.linspace(0, 5, 10)
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -45,7 +45,7 @@ class TestGroundState(unittest.TestCase):
                 sets['store_values'] = True
                 sets['method'] = 'Powell'
                 sets['verbose'] = True
-                sets['maxiter'] = 5000
+                sts['maxiter'] = 5000
                 sets['tol'] = 1e-5
                 opt.settings(sets)
                 opt.get_env()
@@ -53,8 +53,6 @@ class TestGroundState(unittest.TestCase):
 
                 print(opt.obj_fun_values[-1], e[-1], E0_exact)
                 qmps_es.append(opt.obj_fun_values[-1])
-            #np.save('exact', np.array(exact_es))
-            #np.save('calc', np.array(mps_es))
             plt.plot(gs, exact_es)
             plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
