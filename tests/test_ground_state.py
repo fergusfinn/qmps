@@ -8,6 +8,7 @@ from numpy.random import randn
 from xmps.iMPS import iMPS
 from xmps.iOptimize import find_ground_state
 from xmps.spin import N_body_spins
+from scipy.linalg import norm
 Sx1, Sy1, Sz1 = N_body_spins(1/2, 1, 2)
 Sx2, Sy2, Sz2 = N_body_spins(1/2, 2, 2)
 
@@ -21,15 +22,7 @@ class TestGroundState(unittest.TestCase):
 
     def test_optimize_ising(self):
         for AL, AR, C in [self.As[0]]:
-            J = -1
-            K = 2 
-            H = -(J*Sz1@Sz2+K/2*(Sx1@Sx2+Sy1@Sy2))
-            print(H)
-            _, e = find_ground_state(H, 4)
-            print(e[-1], -(J+1)/2*0.693-(J-1)/2*0.307-J/4)
-            raise Exception
-
-            gs = np.linspace(0, 10, 20)
+            gs = [2]
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -39,12 +32,12 @@ class TestGroundState(unittest.TestCase):
                 E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
                 exact_es.append(E0_exact)
                 H =  np.array([[J,g/2,g/2,0], 
-                                [g/2,-J,0,g/2], 
-                                [g/2,0,-J,g/2], 
-                                [0,g/2,g/2,J]] )
+                               [g/2,-J,0,g/2], 
+                               [g/2,0,-J,g/2], 
+                               [0,g/2,g/2,J]] )
 
 
-                _, e = find_ground_state(H, 2)
+                ψ, e = find_ground_state(H, 2)
                 xmps_es.append(e[-1])
 
                 opt = NonSparseFullEnergyOptimizer(H)
@@ -56,6 +49,8 @@ class TestGroundState(unittest.TestCase):
                 sets['tol'] = 1e-5
                 opt.settings(sets)
                 opt.get_env()
+                tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
+
                 print(opt.obj_fun_values[-1], e[-1], E0_exact)
                 qmps_es.append(opt.obj_fun_values[-1])
             #np.save('exact', np.array(exact_es))

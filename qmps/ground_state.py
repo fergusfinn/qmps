@@ -1,6 +1,6 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .represent import get_env_exact
+from .represent import get_env_exact, full_tomography_env_objective_function
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from numpy import array, real, kron, eye
 from numpy.linalg import qr
@@ -23,12 +23,13 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         u_original = FullStateTensor(U4(initial_guess))
         v_original = None
 
-        super().__init__(u_original, v_original, objective_function = None,
+        super().__init__(u_original, v_original,
                          initial_guess=initial_guess, settings=None)
 
     def objective_function(self, u_params):
         U = U4(u_params)
         V = get_env_exact(U)
+        assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
         qbs = cirq.LineQubit.range(4)
         sim = cirq.Simulator()

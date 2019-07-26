@@ -62,7 +62,11 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
 
 def get_env_exact(U):
     η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
-    return environment_to_unitary(cholesky(r))
+    return environment_to_unitary(cholesky(r).conj().T)
+
+def get_env_exact_alternative(U):
+    AL, AR, C = iMPS([unitary_to_tensor(U)]).mixed()
+    return environment_to_unitary(C)
 
 
 #######################
@@ -204,7 +208,7 @@ class State(cirq.Gate):
         v_qbs = self.v.num_qubits()
         u_qbs = self.u.num_qubits()
         n = self.n_phys_qubits
-        return [self.v(*qubits[n:n+v_qbs])] + [self.u(*qubits[i:i+u_qbs]) for i in range(n)]
+        return [self.v(*qubits[n:n+v_qbs])] + [self.u(*qubits[i:i+u_qbs]) for i in list(range(n))[::-1]]
 
     def num_qubits(self):
         return self.n_phys_qubits + self.v.num_qubits()
