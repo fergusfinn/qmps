@@ -1,20 +1,23 @@
-from .tools import Optimizer, cirq_qubits
-from .represent import State, ShallowEnvironment, ShallowStateTensor, VerticalSwapOptimizer
+from qmps.tools import Optimizer, cirq_qubits
+from qmps.represent import State, ShallowEnvironment, ShallowStateTensor, VerticalSwapOptimizer, FullStateTensor, Tensor
 import cirq
+from xmps.spin import U4
 import numpy as np
 from typing import Dict
 
 
 class TimeEvolveOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, hamiltonian: cirq.Gate, **kwargs):
-        super().__init__(u_original, v_original, **kwargs)
+    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, hamiltonian: cirq.Gate, depth: int = 0, **kwargs):
+        super().__init__(u_original, v_original, depth=depth, **kwargs)
         self.hamiltonian = hamiltonian
 
     def objective_function(self, params):
         ham_qubits = self.hamiltonian.num_qubits()
         aux_qubits = int(self.v.num_qubits()/2)
-
-        u_target = ShallowStateTensor(self.bond_dim, params)
+        if self.full_param:
+            u_target = FullStateTensor(U4(params))
+        else:
+            u_target = ShallowStateTensor(self.bond_dim, params)
         target_state = State(u_target, self.v, ham_qubits)
 
         original_state = State(self.u, self.v, ham_qubits)
@@ -34,15 +37,18 @@ class TimeEvolveOptimizer(Optimizer):
 
     def update_final_circuits(self):
         u_params = self.optimized_result.x
-        self.u = ShallowStateTensor(self.bond_dim, u_params)
+        if self.full_param:
+            self.u = FullStateTensor(U4(u_params))
+        else:
+            self.u = ShallowStateTensor(self.bond_dim, u_params)
 
 
 class MPSTimeEvolve:
-    def __init__(self, u_initial: cirq.Gate, hamiltonian: cirq.Gate, v_initial: cirq.Gate = None, qaoa_depth: int=1,
+    def __init__(self, u_initial: cirq.Gate, hamiltonian: cirq.Gate, v_initial: cirq.Gate = None, depth: int=0,
                  settings: Dict = None):
         self.u = u_initial
         self.hamiltonian = hamiltonian
-        self.qaoa_depth = qaoa_depth
+        self.depth = depth
         self.TimeEvoOptimizer = None
         self.EnvOptimizer = None
         self.settings = settings
@@ -53,8 +59,9 @@ class MPSTimeEvolve:
             self.v = self.get_v_params().v
 
     def get_v_params(self):
-        v = self.v if self.v else ShallowEnvironment(self.bond_dim, np.random.rand(2*self.qaoa_depth))
-        self.EnvOptimizer = VerticalSwapOptimizer(self.u, v, qaoa_depth=self.qaoa_depth)
+        v = self.v if self.v else ShallowEnvironment(self.bond_dim, np.random.rand(2 * self.depth))
+        self.EnvOptimizer = VerticalSwapOptimizer(u_original=self.u, v_original=v, depth=self.depth,
+                                                  initial_guess=np.random.rand(15))  # find a way to remove this
 
         if self.settings:
             self.EnvOptimizer.settings(self.settings)
@@ -63,8 +70,9 @@ class MPSTimeEvolve:
         return self.EnvOptimizer
 
     def get_u_params(self):
-        self.TimeEvoOptimizer = TimeEvolveOptimizer(self.u, self.v, self.hamiltonian, qaoa_depth=self.qaoa_depth)
-
+        self.TimeEvoOptimizer = TimeEvolveOptimizer(u_original=self.u, v_original=self.v, hamiltonian=self.hamiltonian,
+                                                    depth=self.depth,
+                                                    initial_guess=np.random.rand(15))  # and this
         if self.settings:
             self.TimeEvoOptimizer.settings(self.settings)
 

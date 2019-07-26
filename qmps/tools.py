@@ -1,7 +1,6 @@
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy import zeros, block, diag, log2
-
 from numpy.random import rand, randint, randn
 from numpy.linalg import svd
 import numpy as np
@@ -157,16 +156,17 @@ class Optimizer:
     '''
     Base class for optimizers. To specify a new optimization technique simply define a new objective function
     '''
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, qaoa_depth: int = 1,
+    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate = None, depth: int= 0,
                  initial_guess: List = None, settings: Dict = None):
         self.u = u_original
         self.v = v_original
         self.iters = 0
         self.obj_fun_values = []
+        self.full_param = False if depth else True  # use full U4 parameterization
         self.store_values = False
         self.optimized_result = None
         self.circuit = None
-        self.initial_guess = initial_guess if initial_guess is not None else np.random.random(2*qaoa_depth)
+        self.initial_guess = initial_guess if initial_guess is not None else np.random.random(2 * depth)
         self.bond_dim = 2**(self.u.num_qubits()-1)
 
         self._settings_ = settings if settings else{

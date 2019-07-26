@@ -337,3 +337,4 @@ if __name__ == '__main__':
     # plt.plot(range(len(qubit_1)), qubit_1)
     # plt.plot(range(len(qubit2)), qubit2)
     # plt.show()
+    cirq.ZZ
