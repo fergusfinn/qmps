@@ -20,7 +20,6 @@ class TestGroundState(unittest.TestCase):
         self.xs = [randn(8, 8)+1j*randn(8, 8) for _ in range(N)]
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
 
-    @unittest.skip('slow')
     def test_NonSparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
             gs = np.linspace(0, 5, 10)
@@ -93,7 +92,7 @@ class TestGroundState(unittest.TestCase):
             plt.plot(gs, exact_es)
             plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
-            plt.savefig('images/D_2_qaoa convergence.pdf')
+            #plt.savefig('images/D_2_qaoa convergence.pdf')
             plt.show()
 
 if __name__=='__main__':

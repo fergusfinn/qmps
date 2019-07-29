@@ -7,6 +7,7 @@ from .tools import split_2s
 from numpy import array, real, kron, eye
 from numpy.linalg import qr
 from numpy.random import randn
+from numpy import log2
 
 from xmps.spin import N_body_spins, U4
 
@@ -47,7 +48,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         sim = cirq.Simulator()
 
         C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
-        H = kron(kron(eye(2), self.H), eye(2))
+        H = kron(kron(eye(self.D), self.H), eye(self.D))
 
         ψ = sim.simulate(C).final_state
 
@@ -63,6 +64,7 @@ class SparseFullEnergyOptimizer(Optimizer):
                  D=2, 
                  env_optimizer=HorizontalSwapOptimizer,
                  env_depth=2,
+                 depth=3,
                  initial_guess=None, 
                  settings: Dict = None):
         self.env_optimizer = env_optimizer
@@ -70,7 +72,7 @@ class SparseFullEnergyOptimizer(Optimizer):
         self.H = H
         self.D = D
         self.d = 2
-        initial_guess = array([randn(), randn()]) if initial_guess is None else initial_guess
+        initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
         self.p = len(initial_guess)
         u_original = ShallowStateTensor(D, initial_guess)
         v_original = None
@@ -81,13 +83,13 @@ class SparseFullEnergyOptimizer(Optimizer):
     def objective_function(self, u_params):
         U = ShallowStateTensor(self.D, u_params)
         #V = self.env_optimizer(U, self.env_depth).get_env().v
-        V = FullEnvironment(get_env_exact(cirq.unitary(U)))
+        V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
 
-        qbs = cirq.LineQubit.range(4)
+        qbs = cirq.LineQubit.range(2+V.num_qubits())
         sim = cirq.Simulator()
 
         C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
-        H = kron(kron(eye(2), self.H), eye(2))
+        H = kron(kron(eye(self.D), self.H), eye(self.D))
 
         ψ = sim.simulate(C).final_state
 
