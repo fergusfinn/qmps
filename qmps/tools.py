@@ -251,7 +251,6 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
 
     return -2*array([x, y, z])+1
 
-
 def random_sparse_circuit(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
     qubits = cirq.LineQubit.range(length)
@@ -276,7 +275,6 @@ def random_sparse_circuit(length, depth=10, p=0.5):
             else:
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
-
 
 def random_circuit(length, depth=10, p=0.5, ψχϕs=None):
     qubits = cirq.LineQubit.range(length)

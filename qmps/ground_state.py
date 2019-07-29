@@ -1,7 +1,9 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
+from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from .tools import split_2s
 from numpy import array, real, kron, eye
 from numpy.linalg import qr
 from numpy.random import randn
@@ -59,22 +61,38 @@ class SparseFullEnergyOptimizer(Optimizer):
     def __init__(self, 
                  H, 
                  D=2, 
-                 get_env_function=get_env_exact,
+                 env_optimizer=HorizontalSwapOptimizer,
+                 env_depth=2,
                  initial_guess=None, 
                  settings: Dict = None):
-        self.get_env = get_env_function
-        if D!=2:
-            raise NotImplementedError('D>2 not implemented')
+        self.env_optimizer = env_optimizer
+        self.env_depth = env_depth
         self.H = H
         self.D = D
         self.d = 2
-        initial_guess = (randn(15) if initial_guess is None else initial_guess)
-        u_original = FullStateTensor(U4(initial_guess))
+        initial_guess = array([randn(), randn()]) if initial_guess is None else initial_guess
+        self.p = len(initial_guess)
+        u_original = ShallowStateTensor(D, initial_guess)
         v_original = None
 
         super().__init__(u_original, v_original,
                          initial_guess=initial_guess, settings=None)
 
+    def objective_function(self, u_params):
+        U = ShallowStateTensor(self.D, u_params)
+        #V = self.env_optimizer(U, self.env_depth).get_env().v
+        V = FullEnvironment(get_env_exact(cirq.unitary(U)))
+
+        qbs = cirq.LineQubit.range(4)
+        sim = cirq.Simulator()
+
+        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
+        H = kron(kron(eye(2), self.H), eye(2))
+
+        ψ = sim.simulate(C).final_state
+
+        f =  real(ψ.conj().T@H@ψ)
+        return f
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX

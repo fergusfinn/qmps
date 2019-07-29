@@ -404,3 +404,4 @@ class HorizontalSwapOptimizer(Optimizer):
     def update_final_circuits(self):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
+
