@@ -7,7 +7,7 @@ import numpy as np
 from xmps.spin import U4
 from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
-from States import FullStateTensor, ShallowStateTensor, State
+from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 
 import os

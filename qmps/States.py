@@ -1,7 +1,14 @@
 import cirq
 from numpy import log2
 import numpy as np
-from tools import split_2s
+#from tools import split_2s import from tools is not working
+
+
+def split_2s(x):
+    """split_2s: take a list: [β, γ, β, γ, ...], return [[β, γ], [β, γ], ...]
+    """
+    return [x[i:i+2] for i in range(len(x)) if not i%2]
+
 
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
