@@ -26,7 +26,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
                  get_env_function=get_env_exact,
                  initial_guess=None, 
                  settings: Dict = None):
-        self.get_env = get_env_function
+        self.env_function = get_env_function
         if D!=2:
             raise NotImplementedError('D>2 not implemented')
         self.H = H
@@ -41,7 +41,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
 
     def objective_function(self, u_params):
         U = U4(u_params)
-        V = self.get_env(U)
+        V = self.env_function(U)
         assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
         qbs = cirq.LineQubit.range(4)
