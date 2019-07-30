@@ -2,7 +2,7 @@ from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy import zeros, block, diag, log2
 from numpy.random import rand, randint, randn
-from numpy.linalg import svd
+from numpy.linalg import svd, qr
 import numpy as np
 from xmps.spin import U4
 from scipy.linalg import null_space, norm, svd
@@ -23,6 +23,8 @@ def get_circuit(state, decomp=None):
     else:
         return cirq.Circuit.from_ops(state(*cirq_qubits(state.num_qubits())))
 
+def random_unitary(*args):
+    return qr(randn(*args))[0]
 
 def svals(A):
     return svd(A)[1]
@@ -220,7 +222,8 @@ class Optimizer:
         # self.optimized_result = differential_evolution(self.objective_function)
         self.update_state()
         if self.is_verbose:
-            print(f'Reason for termination is {self.optimized_result.message}')
+            print(f'Reason for termination is {self.optimized_result.message} ' +
+                  f'\nObjective Function Value is {self.optimized_result.fun}')
 
     def plot_convergence(self, file, exact_value=None):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -624,7 +627,6 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
 
     return -2*array([x, y, z])+1
 
-
 def random_sparse_circuit(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
     qubits = cirq.LineQubit.range(length)
@@ -649,7 +651,6 @@ def random_sparse_circuit(length, depth=10, p=0.5):
             else:
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
-
 
 def random_circuit(length, depth=10, p=0.5, ψχϕs=None):
     qubits = cirq.LineQubit.range(length)

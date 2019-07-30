@@ -1,7 +1,9 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
+from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from .tools import split_2s
 from numpy import array, real, kron, eye
 from numpy.linalg import qr
 from numpy.random import randn
@@ -13,9 +15,19 @@ from scipy.optimize import approx_fprime
 from typing import Callable, List, Dict
 
 class NonSparseFullEnergyOptimizer(Optimizer):
-    def __init__(self, H, D=2, initial_guess=None, settings: Dict = None):
+    """NonSparseFullEnergyOptimizer
+
+    NonSparse: not a low depth variational optimizer
+    Full: simulates the full wavefunction i.e. not via sampling"""
+    def __init__(self, 
+                 H, 
+                 D=2, 
+                 get_env_function=get_env_exact,
+                 initial_guess=None, 
+                 settings: Dict = None):
+        self.get_env = get_env_function
         if D!=2:
-            raise NotImplementedError
+            raise NotImplementedError('D>2 not implemented')
         self.H = H
         self.D = D
         self.d = 2
@@ -28,7 +40,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
 
     def objective_function(self, u_params):
         U = U4(u_params)
-        V = get_env_exact(U)
+        V = self.get_env(U)
         assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
         qbs = cirq.LineQubit.range(4)
@@ -44,6 +56,43 @@ class NonSparseFullEnergyOptimizer(Optimizer):
 
     def update_state(self):
         self.U = U4(self.optimized_result.x)
+
+class SparseFullEnergyOptimizer(Optimizer):
+    def __init__(self, 
+                 H, 
+                 D=2, 
+                 env_optimizer=HorizontalSwapOptimizer,
+                 env_depth=2,
+                 initial_guess=None, 
+                 settings: Dict = None):
+        self.env_optimizer = env_optimizer
+        self.env_depth = env_depth
+        self.H = H
+        self.D = D
+        self.d = 2
+        initial_guess = array([randn(), randn()]) if initial_guess is None else initial_guess
+        self.p = len(initial_guess)
+        u_original = ShallowStateTensor(D, initial_guess)
+        v_original = None
+
+        super().__init__(u_original, v_original,
+                         initial_guess=initial_guess, settings=None)
+
+    def objective_function(self, u_params):
+        U = ShallowStateTensor(self.D, u_params)
+        #V = self.env_optimizer(U, self.env_depth).get_env().v
+        V = FullEnvironment(get_env_exact(cirq.unitary(U)))
+
+        qbs = cirq.LineQubit.range(4)
+        sim = cirq.Simulator()
+
+        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
+        H = kron(kron(eye(2), self.H), eye(2))
+
+        ψ = sim.simulate(C).final_state
+
+        f =  real(ψ.conj().T@H@ψ)
+        return f
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
