@@ -2,12 +2,13 @@ import cirq
 
 from xmps.iMPS import iMPS, TransferMatrix
 
-from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s
 from .tools import from_real_vector, to_real_vector, environment_to_unitary
 from .tools import unitary_to_tensor
-
+from xmps.spin import U4
 from typing import List, Callable, Dict
-
+from .States import State, FullStateTensor, FullEnvironment
+from .tools import RepresentMPS
 from numpy import concatenate, allclose, tensordot, swapaxes, log2
 from numpy.linalg import eig
 from numpy import diag
@@ -136,7 +137,6 @@ def full_tomography_env_objective_function(U, V):
 ############################################
 # Tensor, StateTensor, Environment, State  #
 ############################################ 
-
 
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
@@ -405,3 +405,5 @@ class HorizontalSwapOptimizer(Optimizer):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
 
+def get_env_swap_test(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs):
+    return RepresentMPS(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs)

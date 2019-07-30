@@ -242,7 +242,7 @@ class QubitTimeEvolution:
     def get_v_params(self, noisy=False):
         self.EnvOptimizer = FullSwapOptimizer(self.u_params, bond_dim=self.bond_dim, qaoa_depth=self.qaoa_depth)
         self.EnvOptimizer.set_noise(noisy)
-        self.EnvOptimizer.get_env(max_iter=100)
+        self.EnvOptimizer.optimize(max_iter=100)
         return self.EnvOptimizer.optimized_result.x
 
     def get_u_params(self, noisy=False):
@@ -337,3 +337,4 @@ if __name__ == '__main__':
     # plt.plot(range(len(qubit_1)), qubit_1)
     # plt.plot(range(len(qubit2)), qubit2)
     # plt.show()
+    cirq.ZZ

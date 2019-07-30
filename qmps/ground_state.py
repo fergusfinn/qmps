@@ -54,7 +54,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         f =  real(ψ.conj().T@H@ψ)
         return f
 
-    def update_final_circuits(self):
+    def update_state(self):
         self.U = U4(self.optimized_result.x)
 
 class SparseFullEnergyOptimizer(Optimizer):

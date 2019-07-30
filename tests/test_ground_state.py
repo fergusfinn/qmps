@@ -50,6 +50,7 @@ class TestGroundState(unittest.TestCase):
                 sets['tol'] = 1e-5
                 opt.settings(sets)
                 opt.get_env()
+                tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 
                 print(opt.obj_fun_values[-1], e[-1], E0_exact)
                 qmps_es.append(opt.obj_fun_values[-1])
