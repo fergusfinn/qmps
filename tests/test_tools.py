@@ -23,7 +23,7 @@ class TestTools(unittest.TestCase):
         N = 10
         As = []
         for i in range(N):
-            U = random_unitary(4, 4)._unitary_()
+            U = random_circuit(4, 4)._unitary_()
             if U.shape[0] == 16:
                 As.append(unitary_to_tensor(U))
         

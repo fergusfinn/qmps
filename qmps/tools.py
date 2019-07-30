@@ -2,7 +2,7 @@ from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy import zeros, block, diag, log2
 from numpy.random import rand, randint, randn
-from numpy.linalg import svd
+from numpy.linalg import svd, qr
 import numpy as np
 from xmps.spin import U4
 from scipy.linalg import null_space, norm, svd
@@ -23,6 +23,8 @@ def get_circuit(state, decomp=None):
     else:
         return cirq.Circuit.from_ops(state(*cirq_qubits(state.num_qubits())))
 
+def random_unitary(*args):
+    return qr(randn(*args))[0]
 
 def svals(A):
     return svd(A)[1]
