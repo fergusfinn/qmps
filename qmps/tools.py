@@ -4,10 +4,10 @@ from numpy import zeros, block, diag, log2
 from numpy.random import rand, randint, randn
 from numpy.linalg import svd
 import numpy as np
-
+from xmps.spin import U4
 from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
-
+from States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 
 import os
