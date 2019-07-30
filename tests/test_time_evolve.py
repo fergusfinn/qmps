@@ -24,7 +24,7 @@ class TestTimeEvolve(unittest.TestCase):
                           [g/2, 0, -J, g/2],
                           [0, g/2, g/2, J]])
 
-            T = np.linspace(0, 1, 10)
+            T = np.linspace(0, 0.1, 2)
             dt = T[1]-T[0]
             evs = []
             es = []
@@ -34,12 +34,13 @@ class TestTimeEvolve(unittest.TestCase):
 
             counter = 0
             bloch_sphere_results = []
-            U = FullStateTensor(embed(A.data[0]))
+            U = FullStateTensor(embed(A.data[0][0]))
             V = FullStateTensor(embed(C))  # don't know if this is correct, will just find optimum V variationally
             hamiltonian = FullStateTensor(expm(1j * H * dt))
             evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
-                'method': 'Nelder-Mead',
-                'maxiter': 500
+                'method': 'Powell',
+                'maxiter': 10,
+                'verbose': True
             })
 
             for _ in T:
@@ -48,13 +49,14 @@ class TestTimeEvolve(unittest.TestCase):
                 es.append(A.e)
                 A = (A+dA).left_canonicalise()
                 evs.append(A.Es([Sx, Sy, Sz]))
+
                 '''
                 Below is the cirq time evolution. Gate is made using scipy.expm(H) * dt which is put into a Tensor, and 
                 and this is the hamiltonian.
                 '''
                 evolver.evolve_single_step()
                 results, qubits = evolver.simulate_state()
-                bloch_sphere = results.bloch_vector_of(qubits[1])
+                bloch_sphere = results.bloch_vector_of(qubits[1])*(-0.5)
                 bloch_sphere_results.append(bloch_sphere)
                 counter += 1
 

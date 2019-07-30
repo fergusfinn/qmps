@@ -1,14 +1,11 @@
 import unittest
 
 from numpy.random import randn
- 
+ from scipy.stats import unitary_group
 from xmps.iMPS import iMPS, Map
-
-from qmps.tools import tensor_to_unitary, unitary_to_tensor, eye_like, environment_to_unitary
+from qmps.tools import tensor_to_unitary, unitary_to_tensor, eye_like, environment_to_unitary, RepresentMPS
 from qmps.represent import FullStateTensor, FullEnvironment
 from qmps.represent import *
-from xmps import Map
-
 
 class TestRepresent(unittest.TestCase):
     def setUp(self):
@@ -40,6 +37,12 @@ class TestRepresent(unittest.TestCase):
             self.assertTrue(full_tomography_env_objective_function(U, V)<1e-6)
             self.assertTrue(sampled_tomography_env_objective_function(U, V, 10000)<1e-1)
 
+    def test_full_parameterization_convergence(self):
+        for u in [unitary_group.rvs(4) for i in range(3)]:
+            state = FullStateTensor(U)
+            get_env = RepresentMPS(state)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
+

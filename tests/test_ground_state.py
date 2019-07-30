@@ -41,13 +41,13 @@ class TestGroundState(unittest.TestCase):
                 xmps_es.append(e[-1])
 
                 opt = NonSparseFullEnergyOptimizer(H)
-                sets = opt._settings_
+                sets = opt.change_settings
                 sets['store_values'] = True
                 sets['method'] = 'Powell'
                 sets['verbose'] = True
                 sets['maxiter'] = 5000
                 sets['tol'] = 1e-5
-                opt.settings(sets)
+                opt.change_settings(sets)
                 opt.optimize()
                 tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 

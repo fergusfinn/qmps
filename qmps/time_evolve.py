@@ -39,22 +39,19 @@ class MPSTimeEvolve:
             self.v = self.get_v_params().v
 
     def get_v_params(self):
-        self.EnvOptimizer = RepresentMPS(self.u, initial_guess=self.initial_guess_v,
-                                         **self.evo_optimizer_settings, **self.kwargs)
+        self.EnvOptimizer = RepresentMPS(self.u, initial_guess=self.initial_guess_v, **self.kwargs)
 
         if self.settings:
-            self.EnvOptimizer._settings_(self.settings)
+            self.EnvOptimizer.change_settings(self.settings)
         self.EnvOptimizer.optimize()
         self.initial_guess_v = self.EnvOptimizer.optimized_result.x
         return self.EnvOptimizer
 
     def get_u_params(self):
         self.TimeEvoOptimizer = TimeEvolveOptimizer(self.u, self.v, hamiltonian=self.hamiltonian,
-                                                    initial_guess=self.initial_guess_u,
-                                                    **self.optimizer_settings,
-                                                    **self.kwargs)
+                                                    initial_guess=self.initial_guess_u, **self.kwargs)
         if self.settings:
-            self.TimeEvoOptimizer._settings_(self.settings)
+            self.TimeEvoOptimizer.change_settings(self.settings)
 
         self.TimeEvoOptimizer.optimize()
         self.initial_guess_u = self.TimeEvoOptimizer.optimized_result.x
@@ -130,3 +127,4 @@ class MPSTimeEvolve:
             current_step += 1
             print(current_step)
         return state_overlap
+
