@@ -38,8 +38,8 @@ class TestTimeEvolve(unittest.TestCase):
             V = FullEnvironment(environment_to_unitary(C))
             hamiltonian = FullStateTensor(expm(-1j * H * dt))
             evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
-                'method': 'Nelder-Mead',
-                'maxiter': 1000,
+                'method': 'Powell',
+                'maxiter': 100,
                 'verbose': True
             })
 

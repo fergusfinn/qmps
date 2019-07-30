@@ -1,7 +1,7 @@
 from .tools import Optimizer, cirq_qubits
 from .States import State, ShallowEnvironment, ShallowStateTensor, FullStateTensor, Tensor
 import cirq
-from .tools import TimeEvolveOptimizer, RepresentMPS
+from .tools import TimeEvolveOptimizer, RepresentMPS, GuessInitialFullParameterOptimizer
 from xmps.spin import U4
 import numpy as np
 from scipy.linalg import expm
@@ -30,13 +30,19 @@ class MPSTimeEvolve:
         self.EnvOptimizer = None
 
         self.settings = settings
-
-        self.initial_guess_u = None
+        self.initial_guess_u = self.get_initial_params(self.u)
         self.initial_guess_v = None
 
         self.v = v_initial
         if not v_initial:
             self.v = self.get_v_params().v
+
+    @staticmethod
+    def get_initial_params(u):
+        initial_guess_optimizer = GuessInitialFullParameterOptimizer(u)
+        initial_guess_optimizer.change_settings({'verbose': True})
+        initial_guess_optimizer.optimize()
+        return initial_guess_optimizer.optimized_result.x
 
     def get_v_params(self):
         self.EnvOptimizer = RepresentMPS(self.u, initial_guess=self.initial_guess_v, **self.kwargs)

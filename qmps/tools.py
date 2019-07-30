@@ -462,6 +462,28 @@ class VerticalStateFullSimulate(StateFullOptimizer):
         score = np.abs(final_state) ** 2
         return 1 - score
 
+
+class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
+    def objective_function(self, params):
+        target_u = FullStateTensor(U4(params).conj())
+        num_qubits = 2*self.u.num_qubits()
+        qubits = cirq.LineQubit.range(num_qubits)
+        self.circuit.circuit = cirq.Circuit.from_ops([cirq.H.on(qubits[0]), cirq.H.on(qubits[1]),
+                                                      cirq.CNOT.on(qubits[0], qubits[2]),
+                                                      cirq.CNOT.on(qubits[1], qubits[3]),
+                                                      self.u.on(*qubits[0:2]),
+                                                      target_u.on(*qubits[2:4]),
+                                                      cirq.CNOT.on(qubits[0], qubits[2]),
+                                                      cirq.CNOT.on(qubits[1], qubits[3]),
+                                                      cirq.H.on(qubits[0]), cirq.H.on(qubits[1])])
+
+        simulator = cirq.Simulator()
+        results = simulator.simulate(self.circuit.circuit)
+        final_state = results.final_simulator_state.state_vector[0]
+        score = np.abs(final_state)**2
+        return 1 - score
+
+
 #  Horizontal Optimizers #####################
 
 ##############################################################
