@@ -48,7 +48,7 @@ class TestGroundState(unittest.TestCase):
                 sets['maxiter'] = 5000
                 sets['tol'] = 1e-5
                 opt.settings(sets)
-                opt.get_env()
+                opt.optimize()
                 tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 
                 print(opt.obj_fun_values[-1], e[-1], E0_exact)
