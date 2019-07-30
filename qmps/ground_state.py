@@ -4,17 +4,109 @@ from .represent import get_env_exact, full_tomography_env_objective_function
 from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
-from numpy import array, real, kron, eye
+from numpy import array, real, kron, eye, zeros
 from numpy.linalg import qr
 from numpy.random import randn
-from numpy import log2
+from numpy import log2, trace
 
-from xmps.spin import N_body_spins, U4
+from xmps.spin import N_body_spins, U4, spins
 
 from scipy.optimize import approx_fprime
 
 from typing import Callable, List, Dict
+from functools import reduce
+from itertools import product
 
+Sx, Sy, Sz = spins(0.5)
+
+Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
+S = {'I': eye(2), 'X': Sx, 'Y': Sz, 'Z': Sz}
+
+class PauliMeasureGate(cirq.Gate):
+    """PauliMeasureGate:apply appropriate transformation to 2 qubits 
+       st. measuring qb[0] in z basis measures string"""
+    def __init__(self, string):
+        assert len(string)==2
+        self.string = string
+
+    def _decompose_(self, qubits):
+
+        def single_qubits(string, qubit):
+            assert len(string)==1
+            if string =='X':
+                yield cirq.H(qubit)
+            elif string == 'Y':
+                yield cirq.inverse(cirq.S(qubit))
+                yield cirq.H(qubit)
+
+        i, j = self.string
+        if i=='I':
+            yield cirq.SWAP(qubits[0], qubits[1])
+            j, i = i, j
+        yield single_qubits(i, qubits[0])
+        yield single_qubits(j, qubits[1])
+        if i!='I' and j!='I':
+            yield cirq.CNOT(qubits[1], qubits[0])
+
+    def num_qubits(self):
+        return 2
+    
+    def _circuit_diagram_info_(self, args):
+        return list(self.string)
+
+class Hamiltonian:
+    """Hamiltonian: string of terms in local hamiltonian.
+       Just do quadratic spin 1/2
+       ex. tfim = Hamiltonian({'ZZ': 1, 'X': λ}) = Hamiltonian({'ZZ': 1, 'IX': λ/2, 'XI': λ/2})
+       for parity invariant specify can single site terms ('X') 
+       otherwise 'IX' 'YI' etc."""
+
+    def __init__(self, strings=None):
+        self.strings = strings
+        if strings is not None:
+            for key, val in {key:val for key, val in self.strings.items()}.items():
+                if len(key)==1:
+                    self.strings['I'+key] = val/2
+                    self.strings[key+'I'] = val/2
+                    self.strings.pop(key)
+
+    def to_matrix(self):
+        assert self.strings is not None
+        h_i = zeros((4, 4))
+        for js, J in self.strings.items():
+            h_i += J*reduce(kron, [S[j] for j in js])
+        self._matrix = h_i
+        return h_i
+
+    def from_matrix(self, mat):
+        xyz = list(S.keys())
+        strings = list(product(xyz, xyz))
+        self.strings = {a+b:trace(kron(a, b)@mat) for a, b in strings}
+        return self
+
+    def measure_energy(self, circuit, qubits, reps=1000):
+        assert self.strings is not None
+        ev = 0
+        for string, g in self.strings.items():
+            c = circuit.copy()
+            c.append(PauliMeasureGate(string)(*qubits))
+            c.append(cirq.measure(qubits[0], key=string))
+
+            sim = cirq.Simulator()
+            meas = sim.run(c, repetitions=reps).measurements[string]
+            ev += g*array(list(map(lambda x: 1-2*int(x), meas))).mean()
+        return ev
+
+    def calculate_energy(self, circuit, loc=0):
+        c = circuit.copy()
+        sim = cirq.Simulator()
+        ψ = sim.simulate(c).final_state
+        H = self.to_matrix()
+
+        I = eye(2)
+        H = reduce(kron, [I]*loc+[H]+[I]*(len(c.all_qubits())-loc-2))
+        return real(ψ.conj().T@H@ψ)
+            
 class NonSparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
 
@@ -59,6 +151,44 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         self.U = U4(self.optimized_result.x)
 
 class SparseFullEnergyOptimizer(Optimizer):
+    def __init__(self, 
+                 H, 
+                 D=2, 
+                 env_optimizer=HorizontalSwapOptimizer,
+                 env_depth=2,
+                 depth=3,
+                 initial_guess=None, 
+                 settings: Dict = None):
+        self.env_optimizer = env_optimizer
+        self.env_depth = env_depth
+        self.H = H
+        self.D = D
+        self.d = 2
+        initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
+        self.p = len(initial_guess)
+        u_original = ShallowStateTensor(D, initial_guess)
+        v_original = None
+
+        super().__init__(u_original, v_original,
+                         initial_guess=initial_guess, settings=None)
+
+    def objective_function(self, u_params):
+        U = ShallowStateTensor(self.D, u_params)
+        #V = self.env_optimizer(U, self.env_depth).get_env().v
+        V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
+
+        qbs = cirq.LineQubit.range(2+V.num_qubits())
+        sim = cirq.Simulator()
+
+        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
+        H = kron(kron(eye(self.D), self.H), eye(self.D))
+
+        ψ = sim.simulate(C).final_state
+
+        f =  real(ψ.conj().T@H@ψ)
+        return f
+
+class NoisySparseFullEnergyOptimizer(Optimizer):
     def __init__(self, 
                  H, 
                  D=2, 
