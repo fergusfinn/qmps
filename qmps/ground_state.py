@@ -20,12 +20,14 @@ from itertools import product
 Sx, Sy, Sz = spins(0.5)
 
 Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
-S = {'I': eye(2), 'X': Sx, 'Y': Sz, 'Z': Sz}
+S = {'I': eye(2), 'X': Sx, 'Y': Sy, 'Z': Sz}
 
-class PauliMeasureGate(cirq.Gate):
-    """PauliMeasureGate:apply appropriate transformation to 2 qubits 
+class PauliMeasure(cirq.Gate):
+    """PauliMeasure:apply appropriate transformation to 2 qubits 
        st. measuring qb[0] in z basis measures string"""
     def __init__(self, string):
+        if string=='II':
+            raise Exception('don\'t measure the identity')
         assert len(string)==2
         self.string = string
 
@@ -72,7 +74,7 @@ class Hamiltonian:
 
     def to_matrix(self):
         assert self.strings is not None
-        h_i = zeros((4, 4))
+        h_i = zeros((4, 4))+0j
         for js, J in self.strings.items():
             h_i += J*reduce(kron, [S[j] for j in js])
         self._matrix = h_i
@@ -82,14 +84,15 @@ class Hamiltonian:
         xyz = list(S.keys())
         strings = list(product(xyz, xyz))
         self.strings = {a+b:trace(kron(a, b)@mat) for a, b in strings}
+        del self.strings['II']
         return self
 
-    def measure_energy(self, circuit, qubits, reps=1000):
+    def measure_energy(self, circuit, qubits, reps=300000):
         assert self.strings is not None
         ev = 0
         for string, g in self.strings.items():
             c = circuit.copy()
-            c.append(PauliMeasureGate(string)(*qubits))
+            c.append(PauliMeasure(string)(*qubits))
             c.append(cirq.measure(qubits[0], key=string))
 
             sim = cirq.Simulator()

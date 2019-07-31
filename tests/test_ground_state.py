@@ -1,7 +1,7 @@
 import unittest 
 
 from qmps.ground_state import *
-from qmps.tools import unitary_to_tensor, random_circuit
+from qmps.tools import unitary_to_tensor, random_circuit, random_full_rank_circuit
 from scipy import integrate
 import numpy as np
 from numpy.random import randn
@@ -124,20 +124,57 @@ class TestGroundState(unittest.TestCase):
 
         self.assertTrue(np.allclose(H, H_))
         self.assertTrue(np.allclose(H, H__))
+
+    def test_PauliMeasure(self):
+        qubits = cirq.LineQubit.range(2)
+        circuit = cirq.Circuit().from_ops([cirq.H(qubits[0]), cirq.CNOT(qubits[0], qubits[1])])
+        sim = cirq.Simulator()
+
+        strings = list(map(lambda x: x[0]+x[1], list(product(*[['I', 'X', 'Y', 'Z']]*2))))
+        strings.remove('II')
+        for string in strings:
+            ψ = sim.simulate(circuit).final_state
+            O = Hamiltonian({string: 1}).to_matrix()
+            ev = np.around(np.real(ψ.conj().T@O@ψ), 3)
+
+            c = circuit.copy()
+            c.append([PauliMeasure(string)(*qubits), cirq.measure(qubits[0], key=string)])
+            meas = sim.run(c, repetitions=10000).measurements[string]
+            ev_ = np.around(array(list(map(lambda x: 1-2*int(x), meas))).mean(), 3)
+            diff = norm(ev-ev_)
+            self.assertTrue(norm(ev-ev_)<5e-2)
+
+        circuit = random_circuit(2, 4)
+        sim = cirq.Simulator()
+
+        strings = list(map(lambda x: x[0]+x[1], list(product(*[['I', 'X', 'Y', 'Z']]*2))))
+        strings.remove('II')
+        for string in strings:
+            ψ = sim.simulate(circuit).final_state
+            O = Hamiltonian({string: 1}).to_matrix()
+            ev = np.around(np.real(ψ.conj().T@O@ψ), 3)
+
+            c = circuit.copy()
+            c.append([PauliMeasure(string)(*qubits), cirq.measure(qubits[0], key=string)])
+            meas = sim.run(c, repetitions=10000).measurements[string]
+            ev_ = np.around(array(list(map(lambda x: 1-2*int(x), meas))).mean(), 3)
+            diff = norm(ev-ev_)
+            self.assertTrue(norm(ev-ev_)<5e-2)
     
     def test_Hamiltonian_measure(self):
-        circuit = random_circuit(2, 2)
-        qubits = list(circuit.all_qubits())
+        qubits = cirq.LineQubit.range(2)
+        circuit = random_circuit(2, 4)
+        sim = cirq.Simulator()
 
         N = 2
         for _ in range(N):
             gs = randn(2**4)
-            gs/=norm(gs)
-            H = Hamiltonian({a+b: gs[i] for i, (a, b) in enumerate(product(*[['X', 'Y', 'Z', 'I']]*2))})
-            e = H.measure_energy(circuit, qubits, 10000)
+            strings = list(map(lambda x: x[0]+x[1], list(product(*[['I', 'X', 'Y', 'Z']]*2))))
+            strings.remove('II')
+            H = Hamiltonian({a+b: gs[i] for i, (a, b) in enumerate(strings)})
+            e = H.measure_energy(circuit, qubits, reps=300000)
             e_ = H.calculate_energy(circuit)
-            print(norm(e-e_))
-
+            print(e, e_)
 
 
 if __name__=='__main__':
