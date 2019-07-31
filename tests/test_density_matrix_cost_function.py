@@ -80,11 +80,17 @@ def test_density_matrix_cost_funtion():
         print('Swap Test Results')
         print(optimized_bloch3)
         print(optimized_bloch0)
+        print(np.dot(optimized_bloch0, optimized_bloch3))
         print(optimized_score)
+        print(np.trace(optimized_results.density_matrix_of([qubits[0]])@optimized_results.density_matrix_of([qubits[0]])))
+        print(np.trace(optimized_results.density_matrix_of([qubits[3]])@optimized_results.density_matrix_of([qubits[3]])))
 
         print('Analytic Result')
         print(analytic_bloch0)
         print(analytic_bloch3)
+        print(np.dot(analytic_bloch0, analytic_bloch3))
         print(analytic_score)
+        print(np.trace(analytic_results.density_matrix_of([qubits[0]])@analytic_results.density_matrix_of([qubits[0]])))
+        print(np.trace(analytic_results.density_matrix_of([qubits[3]])@analytic_results.density_matrix_of([qubits[3]])))
 
 test_density_matrix_cost_funtion()
