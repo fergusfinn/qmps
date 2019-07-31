@@ -52,6 +52,7 @@ class TestGroundState(unittest.TestCase):
                 sets['tol'] = 1e-5
                 opt.settings(sets)
                 opt.get_env()
+                tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 
                 qmps_es.append(opt.obj_fun_values[-1])
                 self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
