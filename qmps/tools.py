@@ -163,11 +163,11 @@ class OptimizerCircuit:
 
 
 class Optimizer:
-    def __init__(self, u, v):
+    def __init__(self, u, v, initial_guess=None):
         self.u = u
         self.v = v
 
-        self.initial_guess = None
+        self.initial_guess = initial_guess
         self.iters = 0
         self.optimized_result = None
         self.obj_fun_values = []

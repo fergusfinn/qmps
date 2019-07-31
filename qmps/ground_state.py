@@ -131,8 +131,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         u_original = FullStateTensor(U4(initial_guess))
         v_original = None
 
-        super().__init__(u_original, v_original,
-                         initial_guess=initial_guess, settings=None)
+        super().__init__(u_original, v_original, initial_guess)
 
     def objective_function(self, u_params):
         U = U4(u_params)
@@ -160,7 +159,7 @@ class SparseFullEnergyOptimizer(Optimizer):
                  env_optimizer=HorizontalSwapOptimizer,
                  env_depth=2,
                  depth=3,
-                 initial_guess=None, 
+                 initial_guess = None, 
                  settings: Dict = None):
         self.env_optimizer = env_optimizer
         self.env_depth = env_depth
@@ -172,8 +171,7 @@ class SparseFullEnergyOptimizer(Optimizer):
         u_original = ShallowStateTensor(D, initial_guess)
         v_original = None
 
-        super().__init__(u_original, v_original,
-                         initial_guess=initial_guess, settings=None)
+        super().__init__(u_original, v_original, initial_guess)
 
     def objective_function(self, u_params):
         U = ShallowStateTensor(self.D, u_params)
