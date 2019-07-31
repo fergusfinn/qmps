@@ -1,9 +1,10 @@
+import cirq
 import unittest
 import numpy as np
 from xmps.spin import spins
 from xmps.iMPS import iMPS
 from scipy.linalg import expm
-from qmps.represent import FullStateTensor, FullEnvironment
+from qmps.represent import FullStateTensor, FullEnvironment, get_env_exact
 from qmps.tools import environment_to_unitary, tensor_to_unitary
 from qmps.time_evolve import MPSTimeEvolve
 import matplotlib.pyplot as plt
@@ -20,12 +21,14 @@ class TestTimeEvolve(unittest.TestCase):
     def test_time_evolve(self):
         for AL, AR, C in [self.As[0]]:
             J, g = -1, 0.5
-            H = np.array([[J, g/2, g/2, 0],
-                          [g/2, -J, 0, g/2],
-                          [g/2, 0, -J, g/2],
-                          [0, g/2, g/2, J]])
+            #H = np.array([[J, g/2, g/2, 0],
+            #              [g/2, -J, 0, g/2],
+            #              [g/2, 0, -J, g/2],
+            #              [0, g/2, g/2, J]])
+            from numpy import kron, eye
+            H = kron(Sz, eye(2))
 
-            T = np.linspace(0, 0.1, 100)
+            T = np.linspace(0, 1, 100)
             dt = T[1]-T[0]
             evs = []
             es = []
@@ -34,8 +37,8 @@ class TestTimeEvolve(unittest.TestCase):
 
             counter = 0
             bloch_sphere_results = []
-            U = FullStateTensor(tensor_to_unitary(AL.data[0]))
-            V = FullEnvironment(environment_to_unitary(C))  # don't know if this is correct, will just find optimum V variationally
+            U = FullStateTensor(tensor_to_unitary(AL.left_canonicalise().data[0]))
+            V = FullEnvironment(get_env_exact(cirq.unitary(U)))
             hamiltonian = FullStateTensor(expm(-1j * H * dt))
             evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
                 'method': 'Nelder-Mead',
