@@ -4,9 +4,11 @@ from xmps.spin import spins
 from xmps.iMPS import iMPS
 from scipy.linalg import expm
 from qmps.represent import FullStateTensor, FullEnvironment
-from qmps.tools import environment_to_unitary, tensor_to_unitary
+from qmps.tools import environment_to_unitary, tensor_to_unitary, unitary_to_tensor
 from qmps.time_evolve import MPSTimeEvolve
 import matplotlib.pyplot as plt
+from xmps.spin import U4
+import cirq
 
 Sx, Sy, Sz = spins(0.5)
 Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
@@ -32,10 +34,11 @@ def test_time_evolve():
 
         counter = 0
         bloch_sphere_results = []
+
         U = FullStateTensor(tensor_to_unitary(AL.data[0]))
         V = FullEnvironment(environment_to_unitary(C))
-        hamiltonian = FullStateTensor(np.identity(4) + (-1j * H)*dt)
-
+        hamiltonian = FullStateTensor(expm(-1j * H * dt))
+        # hamiltonian = FullStateTensor(np.identity(4))
         # hamiltonian = FullStateTensor(expm(-1j * H * dt))
         evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
             'method': 'Powell',
@@ -72,6 +75,7 @@ def test_time_evolve():
         ax[0].plot(np.array(bloch_sphere_results), c='b')
         ax[1].plot(es)
         plt.show()
+        fig.savefig('longTimeEvo2.png')
         return np.array(evs), np.array(bloch_sphere_results)
 
 analytic, unitary = test_time_evolve()

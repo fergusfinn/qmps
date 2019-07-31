@@ -31,16 +31,19 @@ class MPSTimeEvolve:
 
         self.settings = settings
         self.initial_guess_u = self.get_initial_params(self.u)
-        self.initial_guess_v = None
-
         self.v = v_initial
-        if not v_initial:
+        if v_initial:
+            # pass
+            # self.initial_guess_v = None
+            self.initial_guess_v = self.get_initial_params(self.v)
+            # print('Initial V parameters')
+        else:
             self.v = self.get_v_params().v
 
     @staticmethod
-    def get_initial_params(u):
-        initial_guess_optimizer = GuessInitialFullParameterOptimizer(u)
-        initial_guess_optimizer.change_settings({'verbose': True})
+    def get_initial_params(target):
+        initial_guess_optimizer = GuessInitialFullParameterOptimizer(target)
+        initial_guess_optimizer.change_settings({'verbose': True, 'maxiter': 30, 'method': 'Powell'})
         initial_guess_optimizer.optimize()
         return initial_guess_optimizer.optimized_result.x
 

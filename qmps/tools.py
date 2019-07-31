@@ -9,8 +9,8 @@ from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
 from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
-
 import os
+import pyswarms as ps
 from typing import Callable, List, Dict
 import cirq
 
@@ -172,11 +172,11 @@ class Optimizer:
         self.optimized_result = None
         self.obj_fun_values = []
         self.settings = {
-            'maxiter': 100,
-            'verbose': False,
-            'method': 'Powell',
+            'maxiter': 10000,
+            'verbose': True,
+            'method': 'Nelder-Mead',
             'tol': 1e-8,
-            'store_values': False
+            'store_values': True
         }
         self.is_verbose = self.settings['verbose']
         self.circuit = OptimizerCircuit()
@@ -219,7 +219,6 @@ class Optimizer:
 
         self.optimized_result = minimize(**kwargs)
         # maybe implement genetic evolution algorithm or particle swarm?
-        # self.optimized_result = differential_evolution(self.objective_function)
         self.update_state()
         if self.is_verbose:
             print(f'Reason for termination is {self.optimized_result.message} ' +
@@ -464,6 +463,10 @@ class VerticalStateFullSimulate(StateFullOptimizer):
 
 
 class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
+    # def __init__(self, guess, target, initial_values=None):
+    #     super().__init__(u=target, initial_guess=initial_values)
+    #     self.guess = guess
+
     def objective_function(self, params):
         target_u = FullStateTensor(U4(params).conj())
         num_qubits = 2*self.u.num_qubits()
@@ -482,6 +485,8 @@ class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
         final_state = results.final_simulator_state.state_vector[0]
         score = np.abs(final_state)**2
         return 1 - score
+
+
 
 
 #  Horizontal Optimizers #####################
@@ -510,14 +515,25 @@ class HorizontalEvoFullSimulate(EvoFullOptimizer):
         target_qubits = range(aux_qubits)
         cnots = [cirq.CNOT(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
         hadamards = [cirq.H(qubits[i]) for i in target_qubits]
-
+        ##############################
+        # measures = [cirq.measure(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
+        ##############################
         circuit = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
-                                         environment.on(*qubits[state_qubits:])] + cnots + hadamards)
+                                          environment.on(*qubits[state_qubits:])] + cnots + hadamards)
+        ##############################
+        # circuit1 = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
+        #                                  environment.on(*qubits[state_qubits:])] + cnots + hadamards + measures)
+        ##############################
         self.circuit.circuit = circuit
 
         simulator = cirq.Simulator()
+        #################################
+        # results1 = simulator.run(circuit1, repetitions=500)
+        # measures1 = results1.measurements['0,3']
+        # both_ones = sum([1 if a and b else 0 for a, b in measures1])
+        # score1 = both_ones/500
+        #################################
         results = simulator.simulate(circuit)
-
         state_qubits = self.circuit.total_qubits
         aux_qubits = self.circuit.aux_qubits
         qubits = self.circuit.qubits
@@ -525,7 +541,8 @@ class HorizontalEvoFullSimulate(EvoFullOptimizer):
         density_matrix_qubits = list(qubits[:aux_qubits]) + list(qubits[state_qubits:state_qubits+aux_qubits])
         density_matrix = results.density_matrix_of(density_matrix_qubits)
         prob_all_ones = density_matrix[-1, -1]
-        return np.abs(prob_all_ones)
+        score = np.abs(prob_all_ones)
+        return score
 
 
 class HorizontalEvoQAOASimulate(EvoQAOAOptimizer):
