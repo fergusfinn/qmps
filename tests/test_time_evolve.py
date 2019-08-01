@@ -1,11 +1,12 @@
 import unittest
-import numpy as np
-from xmps.spin import spins
-from xmps.iMPS import iMPS
 from scipy.linalg import expm
-from qmps.represent import FullStateTensor, FullEnvironment
+from qmps.represent import FullStateTensor, FullEnvironment, get_env_exact
 from qmps.tools import environment_to_unitary, tensor_to_unitary
 from qmps.time_evolve import MPSTimeEvolve
+from xmps.spin import spins
+from xmps.iMPS import iMPS
+import numpy as np
+import cirq
 import matplotlib.pyplot as plt
 
 Sx, Sy, Sz = spins(0.5)
@@ -25,7 +26,7 @@ class TestTimeEvolve(unittest.TestCase):
                           [g/2, 0, -J, g/2],
                           [0, g/2, g/2, J]])
 
-            T = np.linspace(0, 5, 2000)
+            T = np.linspace(0, 1, 100)
             dt = T[1]-T[0]
             evs = []
             es = []
@@ -34,8 +35,8 @@ class TestTimeEvolve(unittest.TestCase):
 
             counter = 0
             bloch_sphere_results = []
-            U = FullStateTensor(tensor_to_unitary(AL.data[0]))
-            V = FullEnvironment(environment_to_unitary(C))
+            U = FullStateTensor(tensor_to_unitary(AL.left_canonicalise().data[0]))
+            V = FullEnvironment(get_env_exact(cirq.unitary(U)))
             hamiltonian = FullStateTensor(expm(-1j * H * dt))
             evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
                 'method': 'Powell',
