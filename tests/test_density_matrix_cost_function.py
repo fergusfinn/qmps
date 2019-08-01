@@ -20,7 +20,7 @@ def test_density_matrix_cost_funtion():
 
         represent = RepresentMPS(U)
         represent.change_settings({'method': 'Powell',
-                                   'maxiter':100,
+                                   'maxiter':1000,
                                    'tol':1e-8,
                                    'verbose':True,
                                    'store_values':True})
@@ -71,6 +71,7 @@ def test_density_matrix_cost_funtion():
         # density matrices
         analytic_density_matrix = analytic_density_matrix_results.density_matrix_of([qubits[0], qubits[3]])
         analytic_prob_all_ones = analytic_density_matrix[-1, -1]
+        print(np.abs(np.diag(analytic_density_matrix)))
         analytic_score = np.abs(analytic_prob_all_ones)
 
         optimized_density_matrix = optimized_density_matrix_results.density_matrix_of([qubits[0], qubits[3]])
@@ -81,7 +82,7 @@ def test_density_matrix_cost_funtion():
         print(optimized_bloch3)
         print(optimized_bloch0)
         print(np.dot(optimized_bloch0, optimized_bloch3))
-        print(optimized_score)
+        print('opt score: ', optimized_score)
         print(np.trace(optimized_results.density_matrix_of([qubits[0]])@optimized_results.density_matrix_of([qubits[0]])))
         print(np.trace(optimized_results.density_matrix_of([qubits[3]])@optimized_results.density_matrix_of([qubits[3]])))
 
@@ -89,7 +90,7 @@ def test_density_matrix_cost_funtion():
         print(analytic_bloch0)
         print(analytic_bloch3)
         print(np.dot(analytic_bloch0, analytic_bloch3))
-        print(analytic_score)
+        print('an score: ', analytic_score)
         print(np.trace(analytic_results.density_matrix_of([qubits[0]])@analytic_results.density_matrix_of([qubits[0]])))
         print(np.trace(analytic_results.density_matrix_of([qubits[3]])@analytic_results.density_matrix_of([qubits[3]])))
 

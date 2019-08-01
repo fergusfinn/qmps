@@ -60,6 +60,45 @@ class TestGroundState(unittest.TestCase):
             plt.plot(gs, qmps_es)
             plt.show()
 
+    def test_NoisyNonSparseFullEnergyOptimizer(self):
+        for AL, AR, C in [self.As[0]]:
+            gs = np.linspace(0, 5, 10)
+            exact_es = []
+            qmps_es = []
+            xmps_es = []
+            for g in gs:
+                J, g = -1, g
+                f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
+                E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
+                exact_es.append(E0_exact)
+                H =  np.array([[J,g/2,g/2,0], 
+                               [g/2,-J,0,g/2], 
+                               [g/2,0,-J,g/2], 
+                               [0,g/2,g/2,J]] )
+
+                ψ, e = find_ground_state(H, 2)
+                xmps_es.append(e[-1])
+
+                opt = NoisyNonSparseFullEnergyOptimizer(H)
+                sets = opt.settings
+                sets['store_values'] = True
+                sets['method'] = 'Powell'
+                sets['verbose'] = True
+                sets['maxiter'] = 5000
+                sets['tol'] = 1e-5
+
+                opt.change_settings(sets)
+                opt.optimize()
+                tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
+
+                print(opt.obj_fun_values[-1], e[-1], E0_exact)
+                qmps_es.append(opt.obj_fun_values[-1])
+            plt.plot(gs, exact_es)
+            plt.plot(gs, xmps_es)
+            plt.plot(gs, qmps_es)
+            plt.show()
+
+    @unittest.skip('slow')
     def test_SparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
             gs = np.linspace(0.1, 5, 10)
