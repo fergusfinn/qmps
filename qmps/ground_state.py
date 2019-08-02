@@ -215,7 +215,7 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
         super().__init__(u_original, v_original,
                          initial_guess=initial_guess)
 
-    def objective_function(self, u_params):
+    def objective_function_density_matrix(self, u_params):
         U = U4(u_params)
         V = self.get_env(U)
         assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
@@ -234,9 +234,38 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
         sim = cirq.DensityMatrixSimulator(noise=noise)
         ρ = sim.simulate(noisy_circuit).final_density_matrix
 
-        H = kron(kron(eye(2), self.H), eye(2))
         f =  real(trace(ρ@H))
         return f
+
+    def objective_function_monte_carlo(self, u_params):
+        U = U4(u_params)
+        V = self.get_env(U)
+        assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
+
+        qbs = cirq.LineQubit.range(4)
+
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs)))
+
+        noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
+
+        system_qubits = sorted(C.all_qubits())
+        noisy_circuit = cirq.Circuit()
+        for moment in C:
+            noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
+
+        sim = cirq.Simulator()
+        ψ = sim.simulate(noisy_circuit).final_state
+        H = kron(kron(eye(2), self.H), eye(2))
+        f = real(ψ.conj().T@H@ψ)
+
+        #sim = cirq.DensityMatrixSimulator(noise=noise)
+        #ρ = sim.simulate(noisy_circuit).final_density_matrix
+
+        #f =  real(trace(ρ@H))
+        return f
+    
+    def objective_function(self, u_params):
+        return self.objective_function_monte_carlo(u_params)
 
     def update_state(self):
         self.U = U4(self.optimized_result.x)

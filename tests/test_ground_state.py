@@ -147,7 +147,7 @@ class TestGroundState(unittest.TestCase):
 
     def test_NoisyNonSparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
-            gs = [0]
+            gs = np.linspace(0, 5, 100)
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -167,7 +167,7 @@ class TestGroundState(unittest.TestCase):
                 opt = NoisyNonSparseFullEnergyOptimizer(H, 0.1)
                 sets = opt.settings
                 sets['store_values'] = True
-                sets['method'] = 'Powell'
+                sets['method'] = 'Nelder-Mead'
                 sets['verbose'] = True
                 sets['maxiter'] = 5000
                 sets['tol'] = 1e-5
