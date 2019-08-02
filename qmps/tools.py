@@ -9,8 +9,8 @@ from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
 from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
-
 import os
+import pyswarms as ps
 from typing import Callable, List, Dict
 import cirq
 
@@ -172,16 +172,16 @@ class Optimizer:
         self.optimized_result = None
         self.obj_fun_values = []
         self.settings = {
-            'maxiter': 100,
-            'verbose': False,
-            'method': 'Powell',
+            'maxiter': 10000,
+            'verbose': True,
+            'method': 'Nelder-Mead',
             'tol': 1e-8,
-            'store_values': False
+            'store_values': True
         }
         self.is_verbose = self.settings['verbose']
         self.circuit = OptimizerCircuit()
 
-    def _settings_(self, new_settings):
+    def change_settings(self, new_settings):
         return self.settings.update(new_settings)
 
     def gate_from_params(self, params):
@@ -219,10 +219,10 @@ class Optimizer:
 
         self.optimized_result = minimize(**kwargs)
         # maybe implement genetic evolution algorithm or particle swarm?
-        # self.optimized_result = differential_evolution(self.objective_function)
         self.update_state()
         if self.is_verbose:
-            print(f'Reason for termination is {self.optimized_result.message}')
+            print(f'Reason for termination is {self.optimized_result.message} ' +
+                  f'\nObjective Function Value is {self.optimized_result.fun}')
 
     def plot_convergence(self, file, exact_value=None):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -461,6 +461,34 @@ class VerticalStateFullSimulate(StateFullOptimizer):
         score = np.abs(final_state) ** 2
         return 1 - score
 
+
+class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
+    # def __init__(self, guess, target, initial_values=None):
+    #     super().__init__(u=target, initial_guess=initial_values)
+    #     self.guess = guess
+
+    def objective_function(self, params):
+        target_u = FullStateTensor(U4(params).conj())
+        num_qubits = 2*self.u.num_qubits()
+        qubits = cirq.LineQubit.range(num_qubits)
+        self.circuit.circuit = cirq.Circuit.from_ops([cirq.H.on(qubits[0]), cirq.H.on(qubits[1]),
+                                                      cirq.CNOT.on(qubits[0], qubits[2]),
+                                                      cirq.CNOT.on(qubits[1], qubits[3]),
+                                                      self.u.on(*qubits[0:2]),
+                                                      target_u.on(*qubits[2:4]),
+                                                      cirq.CNOT.on(qubits[0], qubits[2]),
+                                                      cirq.CNOT.on(qubits[1], qubits[3]),
+                                                      cirq.H.on(qubits[0]), cirq.H.on(qubits[1])])
+
+        simulator = cirq.Simulator()
+        results = simulator.simulate(self.circuit.circuit)
+        final_state = results.final_simulator_state.state_vector[0]
+        score = np.abs(final_state)**2
+        return 1 - score
+
+
+
+
 #  Horizontal Optimizers #####################
 
 ##############################################################
@@ -487,14 +515,25 @@ class HorizontalEvoFullSimulate(EvoFullOptimizer):
         target_qubits = range(aux_qubits)
         cnots = [cirq.CNOT(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
         hadamards = [cirq.H(qubits[i]) for i in target_qubits]
-
+        ##############################
+        # measures = [cirq.measure(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
+        ##############################
         circuit = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
-                                         environment.on(*qubits[state_qubits:])] + cnots + hadamards)
+                                          environment.on(*qubits[state_qubits:])] + cnots + hadamards)
+        ##############################
+        # circuit1 = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
+        #                                  environment.on(*qubits[state_qubits:])] + cnots + hadamards + measures)
+        ##############################
         self.circuit.circuit = circuit
 
         simulator = cirq.Simulator()
+        #################################
+        # results1 = simulator.run(circuit1, repetitions=500)
+        # measures1 = results1.measurements['0,3']
+        # both_ones = sum([1 if a and b else 0 for a, b in measures1])
+        # score1 = both_ones/500
+        #################################
         results = simulator.simulate(circuit)
-
         state_qubits = self.circuit.total_qubits
         aux_qubits = self.circuit.aux_qubits
         qubits = self.circuit.qubits
@@ -502,7 +541,8 @@ class HorizontalEvoFullSimulate(EvoFullOptimizer):
         density_matrix_qubits = list(qubits[:aux_qubits]) + list(qubits[state_qubits:state_qubits+aux_qubits])
         density_matrix = results.density_matrix_of(density_matrix_qubits)
         prob_all_ones = density_matrix[-1, -1]
-        return np.abs(prob_all_ones)
+        score = np.abs(prob_all_ones)
+        return score
 
 
 class HorizontalEvoQAOASimulate(EvoQAOAOptimizer):
@@ -544,7 +584,7 @@ class HorizontalEvoQAOASimulate(EvoQAOAOptimizer):
 
 
 class RepresentMPS:
-    def __new__(cls, u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs):
+    def __new__(cls, u, vertical='Horizontal', ansatz='Full', simulate='Simulate', **kwargs):
         optimizer_choice = {
             'QAOA': {
                 'Simulate': {
@@ -597,127 +637,6 @@ class TimeEvolveOptimizer:
         }
         return optimizer_choice[ansatz][simulate][vertical](u, v, hamiltonian=hamiltonian, **kwargs)
 
-
-class MPSTimeEvolve:
-    def __init__(self, u_initial: cirq.Gate, hamiltonian: cirq.Gate, v_initial: cirq.Gate = None, depth: int=0,
-                 settings=None, optimizer_settings=None,
-                 reps=0):
-        self.u = u_initial
-        self.hamiltonian = hamiltonian
-
-        self.kwargs = {}
-        if reps:
-            self.kwargs.update({'reps': reps})
-        if depth:
-            self.kwargs.update({'depth': depth})
-
-        self.optimizer_settings = optimizer_settings if optimizer_settings else \
-            {'vertical': 'Vertical', 'ansatz': 'Full', 'simulate': 'Simulate'}
-        self.evo_optimizer_settings = self.optimizer_settings.copy()
-        self.evo_optimizer_settings.update({'vertical': 'Horizontal'})
-
-        self.TimeEvoOptimizer = None
-        self.EnvOptimizer = None
-
-        self.settings = settings
-
-        self.initial_guess_u = None
-        self.initial_guess_v = None
-
-        self.v = v_initial
-        if not v_initial:
-            self.v = self.get_v_params().v
-
-    def get_v_params(self):
-        self.EnvOptimizer = RepresentMPS(self.u, initial_guess=self.initial_guess_v,
-                                         **self.evo_optimizer_settings, **self.kwargs)
-
-        if self.settings:
-            self.EnvOptimizer._settings_(self.settings)
-        self.EnvOptimizer.optimize()
-        self.initial_guess_v = self.EnvOptimizer.optimized_result.x
-        return self.EnvOptimizer
-
-    def get_u_params(self):
-        self.TimeEvoOptimizer = TimeEvolveOptimizer(self.u, self.v, hamiltonian=self.hamiltonian,
-                                                    initial_guess=self.initial_guess_u,
-                                                    **self.optimizer_settings,
-                                                    **self.kwargs)
-        if self.settings:
-            self.TimeEvoOptimizer._settings_(self.settings)
-
-        self.TimeEvoOptimizer.optimize()
-        self.initial_guess_u = self.TimeEvoOptimizer.optimized_result.x
-        return self.TimeEvoOptimizer
-
-    def evolve_single_step(self):
-        self.u = self.get_u_params().u
-        self.v = self.get_v_params().v
-
-    def evolve_multiple_steps(self, steps):
-        for _ in range(steps):
-            self.evolve_single_step()
-
-    def simulate_state(self):
-        state = State(self.u, self.v, 1)
-        qubits = cirq.LineQubit.range(state.num_qubits())
-        circuit = cirq.Circuit.from_ops([state.on(*qubits)])
-        simulator = cirq.Simulator()
-        return simulator.simulate(circuit), qubits
-
-    def evolve_bloch_sphere(self, evo_steps):
-        current_step = 0
-        n_qubits = self.hamiltonian.num_qubits()
-        qubit_1 = []
-
-        results, qubits = self.simulate_state()
-        qb1 = results.bloch_vector_of(qubits[1])
-        qubit_1.append(qb1)
-
-        while current_step < evo_steps:
-            # evolve a single step
-            self.evolve_single_step()
-
-            # simulate the new state
-            results, qubits = self.simulate_state()
-
-            # get bloch sphere of physical qubit
-            qb1 = results.bloch_vector_of(qubits[1])
-
-            # record results
-            qubit_1.append(qb1)
-
-            current_step += 1
-
-        x_evo = [step[0] for step in qubit_1]
-        y_evo = [step[1] for step in qubit_1]
-        z_evo = [step[2] for step in qubit_1]
-        return x_evo, y_evo, z_evo
-
-    def loschmidt_echo(self, steps):
-        '''
-        Search for loshmidt echos in Ising Hamiltonian
-        :param steps: time steps
-
-        Value that is being evaluated is the square of the Loschmidt amplitude:
-        https://royalsocietypublishing.org/doi/pdf/10.1098/rsta.2015.0160
-        '''
-        original_state, original_qubits = self.simulate_state()
-
-        original_wavefunction = original_state.final_simulator_state.state_vector
-
-        state_overlap = []
-        current_step = 0
-        while current_step < steps:
-            self.evolve_single_step()
-            new_state, _ = self.simulate_state()
-            new_wavefunction = new_state.final_simulator_state.state_vector
-
-            overlap = np.abs(np.dot(original_wavefunction, new_wavefunction.conj()))**2
-            state_overlap.append(overlap)
-            current_step += 1
-            print(current_step)
-        return state_overlap
 
 
 

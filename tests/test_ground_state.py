@@ -114,8 +114,10 @@ class TestGroundState(unittest.TestCase):
                 sets['verbose'] = self.verbose
                 sets['maxiter'] = 5000
                 sets['tol'] = 1e-5
-                opt._settings_(sets)
+
+                opt.change_settings(sets)
                 opt.optimize()
+                tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 
                 qmps_es.append(opt.obj_fun_values[-1])
                 self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
