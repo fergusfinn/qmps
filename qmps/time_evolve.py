@@ -1,7 +1,7 @@
 from .tools import Optimizer, cirq_qubits
 from .States import State, ShallowEnvironment, ShallowStateTensor, FullStateTensor, Tensor
 import cirq
-from .tools import TimeEvolveOptimizer, RepresentMPS, GuessInitialFullParameterOptimizer
+from .tools import TimeEvolveOptimizer, RepresentMPS, GuessInitialFullParameterOptimizer, get_env_exact
 from xmps.spin import U4
 import numpy as np
 from scipy.linalg import expm
@@ -14,7 +14,6 @@ class MPSTimeEvolve:
                  reps=0):
         self.u = u_initial
         self.hamiltonian = hamiltonian
-
         self.kwargs = {}
         if reps:
             self.kwargs.update({'reps': reps})
@@ -32,43 +31,41 @@ class MPSTimeEvolve:
         self.settings = settings
         self.initial_guess_u = self.get_initial_params(self.u)
         self.v = v_initial
-        if v_initial:
-            # pass
-            # self.initial_guess_v = None
-            self.initial_guess_v = self.get_initial_params(self.v)
-            # print('Initial V parameters')
-        else:
-            self.v = self.get_v_params().v
+        # if v_initial:
+        #     # pass
+        #     # self.initial_guess_v = None
+        #     self.initial_guess_v = self.get_initial_params(self.v)
+        #     # print('Initial V parameters')
+        # else:
+        #     self.v = self.get_v_params().v
 
     @staticmethod
     def get_initial_params(target):
         initial_guess_optimizer = GuessInitialFullParameterOptimizer(target)
-        initial_guess_optimizer.change_settings({'verbose': True, 'maxiter': 30, 'method': 'Powell'})
+        initial_guess_optimizer.change_settings({'verbose': True, 'maxiter': 30, 'method': 'Powell', })
         initial_guess_optimizer.optimize()
         return initial_guess_optimizer.optimized_result.x
 
     def get_v_params(self):
         self.EnvOptimizer = RepresentMPS(self.u, initial_guess=self.initial_guess_v, **self.kwargs)
-
-        if self.settings:
-            self.EnvOptimizer.change_settings(self.settings)
+        self.EnvOptimizer.change_settings(self.settings)
         self.EnvOptimizer.optimize()
         self.initial_guess_v = self.EnvOptimizer.optimized_result.x
         return self.EnvOptimizer
 
     def get_u_params(self):
+
         self.TimeEvoOptimizer = TimeEvolveOptimizer(self.u, self.v, hamiltonian=self.hamiltonian,
                                                     initial_guess=self.initial_guess_u, **self.kwargs)
-        if self.settings:
-            self.TimeEvoOptimizer.change_settings(self.settings)
-
+        self.TimeEvoOptimizer.change_settings(self.settings)
         self.TimeEvoOptimizer.optimize()
         self.initial_guess_u = self.TimeEvoOptimizer.optimized_result.x
         return self.TimeEvoOptimizer
 
     def evolve_single_step(self):
         self.u = self.get_u_params().u
-        self.v = self.get_v_params().v
+        #self.v = self.get_v_params().v
+        self.v = FullStateTensor(get_env_exact(cirq.unitary(self.u)))
 
     def evolve_multiple_steps(self, steps):
         for _ in range(steps):

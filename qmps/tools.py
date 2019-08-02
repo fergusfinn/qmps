@@ -4,15 +4,27 @@ from numpy import zeros, block, diag, log2
 from numpy.random import rand, randint, randn
 from numpy.linalg import svd, qr
 import numpy as np
+
 from xmps.spin import U4
-from scipy.linalg import null_space, norm, svd
+from xmps.iMPS import iMPS, TransferMatrix
+
+from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
+
 from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 import os
-import pyswarms as ps
-from typing import Callable, List, Dict
 import cirq
+from xmps.iMPS import iMPS, TransferMatrix
+
+
+def get_env_exact(U):
+    """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
+
+    :param U:
+    """
+    η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
+    return environment_to_unitary(cholesky(r).conj().T)
 
 
 def get_circuit(state, decomp=None):
@@ -175,8 +187,8 @@ class Optimizer:
             'maxiter': 10000,
             'verbose': True,
             'method': 'Nelder-Mead',
-            'tol': 1e-8,
-            'store_values': True
+            'tol': 1e-4,
+            'store_values': False
         }
         self.is_verbose = self.settings['verbose']
         self.circuit = OptimizerCircuit()
@@ -442,10 +454,15 @@ class VerticalStateQAOASimulate(StateQAOAOptimizer):
 
 class VerticalStateFullSimulate(StateFullOptimizer):
     def objective_function(self, params):
+        state_unitary = U4(params)
+        environment_unitary = get_env_exact(state_unitary)
+
         target_u = FullStateTensor(U4(params))
+        target_v = FullStateTensor(environment_unitary)
         physical_qubits = self.hamiltonian.num_qubits()
+
         original_state = State(self.u, self.v, n=physical_qubits)
-        target_state = State(target_u, self.v, n=physical_qubits)
+        target_state = State(target_u, target_v, n=physical_qubits)
 
         aux_qubits = int(self.v.num_qubits() / 2)
         qubits = cirq.LineQubit.range(original_state.num_qubits())
@@ -486,17 +503,76 @@ class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
         score = np.abs(final_state)**2
         return 1 - score
 
-
-
-
 #  Horizontal Optimizers #####################
 
 ##############################################################
 
 
 class HorizontalEvoFullSimulate(EvoFullOptimizer):
-
     def objective_function(self, params):
+        '''
+        Circuit 1:              Circuit 2:              Circuit 3:
+        Trace distance objective function:
+        |   |   |   |   |   |`  |   |   |   |   |   |   |   |   |   |   |
+        |   |-V-|   |   |   |`  |   |-V-|   |   |-V-|   |   |   |   |   |
+        |-U-|   |   |-V-|   |`  |-U-|   |   |-U-|   |   |   |-V-|   |-V-|
+        @-----------X       |`  @-----------X           |   @-------X
+        H                   |`  H                       |   H
+                         break1 |                    break2 |
+                               rho                         sigma
+        '''
+
+        environment = FullStateTensor(U4(params))
+        state = State(self.u, environment, 1)
+
+        state_qubits = state.num_qubits()
+        env_qubits = environment.num_qubits()
+
+        aux_qubits = int(env_qubits/2)
+        control_qubits = list(range(aux_qubits))
+
+        target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
+
+        total_qubits = (2 * state_qubits)
+        qubits = cirq.LineQubit.range(total_qubits)
+
+        cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
+        cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
+        cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
+
+        hadamards = [cirq.H(qubits[i]) for i in control_qubits]
+
+        circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          environment(*qubits[state_qubits: state_qubits+env_qubits])] +
+                                         cnots1 + hadamards)
+
+        circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
+
+        circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
+                                         environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 + hadamards)
+
+        simulator = cirq.Simulator()
+        results1 = simulator.simulate(circuit1)
+        results2 = simulator.simulate(circuit2)
+        results3 = simulator.simulate(circuit3)
+
+        circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
+        circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
+
+        r_s = results1.density_matrix_of(circuit1qubits)[-1, -1]
+        r_squared = results2.density_matrix_of(circuit1qubits)[-1, -1]
+        s_squared = results3.density_matrix_of(circuit3qubits)[-1, -1]
+
+        score = (r_squared + s_squared - 2 * r_s).real
+        return -score
+
+    def swap_objective_function(self, params):
+        '''
+        Returns 1/2 + 1/2(Tr(rho x sigma)) which has the problem of increasing purity to reduce cost function
+        '''
         environment = FullStateTensor(U4(params))
         state = State(self.u, environment, 1)
 

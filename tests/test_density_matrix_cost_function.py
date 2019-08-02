@@ -12,7 +12,7 @@ Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
 
 
 def test_density_matrix_cost_funtion():
-    N = 1
+    N = 3
     As = [iMPS().random(2, 2).mixed() for _ in range(N)]
     for AL, AR, C in As:
         U = FullStateTensor(tensor_to_unitary(AL.data[0]))
@@ -21,9 +21,9 @@ def test_density_matrix_cost_funtion():
         represent = RepresentMPS(U)
         represent.change_settings({'method': 'Powell',
                                    'maxiter':100,
-                                   'tol':1e-8,
-                                   'verbose':True,
-                                   'store_values':True})
+                                   'tol': 1e-8,
+                                   'verbose': True,
+                                   'store_values': True})
         represent.optimize()
         v_optimized = represent.v
 
@@ -78,19 +78,20 @@ def test_density_matrix_cost_funtion():
         optimized_score = np.abs(optimized_prob_all_ones)
 
         print('Swap Test Results')
-        print(optimized_bloch3)
-        print(optimized_bloch0)
-        print(np.dot(optimized_bloch0, optimized_bloch3))
-        print(optimized_score)
-        print(np.trace(optimized_results.density_matrix_of([qubits[0]])@optimized_results.density_matrix_of([qubits[0]])))
-        print(np.trace(optimized_results.density_matrix_of([qubits[3]])@optimized_results.density_matrix_of([qubits[3]])))
+        print(f'Bloch vector 3 {optimized_bloch3}')
+        print(f'Bloch Vetor 0 {optimized_bloch0}')
+        print(f'OVerlap of bloch vetors: {np.dot(optimized_bloch0, optimized_bloch3)}')
+        # print(optimized_score)
+        zero_purity = np.trace(optimized_results.density_matrix_of([qubits[0]])@optimized_results.density_matrix_of([qubits[0]]))
+        three_purity = np.trace(optimized_results.density_matrix_of([qubits[3]]) @ optimized_results.density_matrix_of([qubits[3]]))
+        print(f'Purity of zero: {zero_purity}')
+        print(f'Purity of 3: {three_purity}')
 
         print('Analytic Result')
-        print(analytic_bloch0)
-        print(analytic_bloch3)
-        print(np.dot(analytic_bloch0, analytic_bloch3))
-        print(analytic_score)
-        print(np.trace(analytic_results.density_matrix_of([qubits[0]])@analytic_results.density_matrix_of([qubits[0]])))
-        print(np.trace(analytic_results.density_matrix_of([qubits[3]])@analytic_results.density_matrix_of([qubits[3]])))
+        print(f'Bloch Vector 0 {analytic_bloch0}')
+        print(f'Bloch Vector 3 {analytic_bloch3}')
+        print(f'Overlap of vectors: {np.dot(analytic_bloch0, analytic_bloch3)}')
+        #print(analytic_score)
+        print(f'purity {np.trace(analytic_results.density_matrix_of([qubits[3]])@analytic_results.density_matrix_of([qubits[3]]))}')
 
 test_density_matrix_cost_funtion()

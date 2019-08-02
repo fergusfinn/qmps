@@ -16,7 +16,6 @@ Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
 
 As = [iMPS().random(2, 2).mixed() for _ in range(3)]
 
-
 def test_time_evolve():
     for AL, AR, C in [As[0]]:
         J, g = -1, 0.5
@@ -25,7 +24,7 @@ def test_time_evolve():
                       [g / 2, 0, -J, g / 2],
                       [0, g / 2, g / 2, J]])
 
-        T = np.linspace(0, 0.1, 100)
+        T = np.linspace(0, 1, 200)
         dt = T[1] - T[0]
         evs = []
         es = []
@@ -37,13 +36,13 @@ def test_time_evolve():
 
         U = FullStateTensor(tensor_to_unitary(AL.data[0]))
         V = FullEnvironment(environment_to_unitary(C))
-        hamiltonian = FullStateTensor(expm(-1j * H * dt))
-        # hamiltonian = FullStateTensor(np.identity(4))
         # hamiltonian = FullStateTensor(expm(-1j * H * dt))
+        hamiltonian = FullStateTensor(np.identity(4))
         evolver = MPSTimeEvolve(u_initial=U, hamiltonian=hamiltonian, v_initial=V, settings={
             'method': 'Powell',
             'maxiter': 100,
-            'verbose': True
+            'verbose': True,
+            'tol': 1e-8
         })
         # initial classical value
         A = AL
@@ -75,7 +74,7 @@ def test_time_evolve():
         ax[0].plot(np.array(bloch_sphere_results), c='b')
         ax[1].plot(es)
         plt.show()
-        fig.savefig('longTimeEvo2.png')
+        fig.savefig('FullEvaluatelongTimeEvo2.png')
         return np.array(evs), np.array(bloch_sphere_results)
 
 analytic, unitary = test_time_evolve()
