@@ -196,8 +196,8 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     Full: simulates the full wavefunction i.e. not via sampling"""
     def __init__(self, 
                  H, 
+                 depolarizing_prob,
                  D=2, 
-                 depolarizing_prob=0.2,
                  get_env_function=get_env_exact,
                  initial_guess=None, 
                  settings: Dict = None):
@@ -222,7 +222,7 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
 
         qbs = cirq.LineQubit.range(4)
 
-        C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs)))
 
         noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
 
@@ -230,11 +230,11 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
         noisy_circuit = cirq.Circuit()
         for moment in C:
             noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
-        H = kron(kron(eye(2), self.H), eye(2))
 
         sim = cirq.DensityMatrixSimulator(noise=noise)
-        ρ = sim.simulate(noisy_circuit).final_state
+        ρ = sim.simulate(noisy_circuit).final_density_matrix
 
+        H = kron(kron(eye(2), self.H), eye(2))
         f =  real(trace(ρ@H))
         return f
 
