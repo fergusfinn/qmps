@@ -10,7 +10,7 @@ from typing import Dict
 
 class MPSTimeEvolve:
     def __init__(self, u_initial: cirq.Gate, hamiltonian: cirq.Gate, v_initial: cirq.Gate = None, depth: int=0,
-                 settings=None, optimizer_settings=None,
+                 settings=None, optimizer_settings=None, initial_params = None,
                  reps=0):
         self.u = u_initial
         self.hamiltonian = hamiltonian
@@ -29,7 +29,7 @@ class MPSTimeEvolve:
         self.EnvOptimizer = None
 
         self.settings = settings
-        self.initial_guess_u = self.get_initial_params(self.u)
+        self.initial_guess_u = initial_params if initial_params else self.get_initial_params(self.u)
         self.v = v_initial
         # if v_initial:
         #     # pass

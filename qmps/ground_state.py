@@ -2,7 +2,7 @@ import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
 from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
-from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector, FullOptimizer
 from .tools import split_2s
 from numpy import array, real, kron, eye
 from numpy.linalg import qr
@@ -14,7 +14,7 @@ from scipy.optimize import approx_fprime
 
 from typing import Callable, List, Dict
 
-class NonSparseFullEnergyOptimizer(Optimizer):
+class NonSparseFullEnergyOptimizer(FullOptimizer):
     """NonSparseFullEnergyOptimizer
 
     NonSparse: not a low depth variational optimizer
@@ -35,8 +35,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         u_original = FullStateTensor(U4(initial_guess))
         v_original = None
 
-        super().__init__(u_original, v_original,
-                         initial_guess=initial_guess, settings=None)
+        super().__init__(u_original, v_original, initial_guess=initial_guess)
 
     def objective_function(self, u_params):
         U = U4(u_params)
