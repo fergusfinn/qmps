@@ -29,8 +29,9 @@ class MPSTimeEvolve:
         self.EnvOptimizer = None
 
         self.settings = settings
-        self.initial_guess_u = initial_params if initial_params else self.get_initial_params(self.u)
+        self.initial_guess_u = initial_params if isinstance(initial_params, np.ndarray) else self.get_initial_params(self.u)
         self.v = v_initial
+        self.initial_guess_v = None
         # if v_initial:
         #     # pass
         #     # self.initial_guess_v = None
