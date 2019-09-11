@@ -22,6 +22,7 @@ class TestGroundState(unittest.TestCase):
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
         self.verbose=True
 
+    @unittest.skip('x')
     def test_Hamiltonian_to_matrix(self):
         J = -1
         g = 1
@@ -36,6 +37,7 @@ class TestGroundState(unittest.TestCase):
         self.assertTrue(np.allclose(H, H_))
         self.assertTrue(np.allclose(H, H__))
 
+    @unittest.skip('x')
     def test_PauliMeasure(self):
         qubits = cirq.LineQubit.range(2)
         circuit = cirq.Circuit().from_ops([cirq.H(qubits[0]), cirq.CNOT(qubits[0], qubits[1])])
@@ -72,6 +74,7 @@ class TestGroundState(unittest.TestCase):
             diff = norm(ev-ev_)
             self.assertTrue(norm(ev-ev_)<5e-2)
     
+    @unittest.skip('x')
     def test_Hamiltonian_measure(self):
         qubits = cirq.LineQubit.range(2)
         circuit = random_circuit(2, 4)
@@ -131,6 +134,7 @@ class TestGroundState(unittest.TestCase):
             plt.plot(gs, qmps_es)
             plt.show()
 
+    @unittest.skip('x')
     def test_SparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
             gs = np.linspace(0.1, 5, 10)
@@ -173,8 +177,6 @@ class TestGroundState(unittest.TestCase):
             plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
-
-
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

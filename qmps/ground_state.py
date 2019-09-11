@@ -126,7 +126,6 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         self.D = D
         self.d = 2
         initial_guess = (randn((2*D)**2-1) if initial_guess is None else initial_guess)
-        print(len(initial_guess), 2*D)
         u_original = FullStateTensor(SU(initial_guess, 2*D))
         v_original = None
 

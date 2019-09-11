@@ -10,7 +10,6 @@ from scipy.optimize import minimize
 from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 import os
-import pyswarms as ps
 from typing import Callable, List, Dict
 import cirq
 
