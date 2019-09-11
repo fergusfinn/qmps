@@ -107,7 +107,7 @@ class TestGroundState(unittest.TestCase):
                 ψ, e = find_ground_state(H, 2)
                 xmps_es.append(e[-1])
 
-                opt = NonSparseFullEnergyOptimizer(H)
+                opt = NonSparseFullEnergyOptimizer(H, 4)
                 sets = opt.settings
                 sets['store_values'] = True
                 sets['method'] = 'Nelder-Mead'
@@ -118,7 +118,6 @@ class TestGroundState(unittest.TestCase):
                 opt.change_settings(sets)
                 opt.optimize()
                 tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
-
                 qmps_es.append(opt.obj_fun_values[-1])
                 self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
             qmps_norm = norm(np.array(exact_es)-np.array(qmps_es))

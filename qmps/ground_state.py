@@ -9,7 +9,7 @@ from numpy.linalg import qr
 from numpy.random import randn
 from numpy import log2, trace
 
-from xmps.spin import N_body_spins, U4, spins
+from xmps.spin import N_body_spins, U4, spins, SU
 
 from scipy.optimize import approx_fprime
 
@@ -122,23 +122,22 @@ class NonSparseFullEnergyOptimizer(Optimizer):
                  initial_guess=None, 
                  settings: Dict = None):
         self.env_function = get_env_function
-        if D!=2:
-            raise NotImplementedError('D>2 not implemented')
         self.H = H
         self.D = D
         self.d = 2
-        initial_guess = (randn(15) if initial_guess is None else initial_guess)
-        u_original = FullStateTensor(U4(initial_guess))
+        initial_guess = (randn((2*D)**2-1) if initial_guess is None else initial_guess)
+        print(len(initial_guess), 2*D)
+        u_original = FullStateTensor(SU(initial_guess, 2*D))
         v_original = None
 
         super().__init__(u_original, v_original, initial_guess)
 
     def objective_function(self, u_params):
-        U = U4(u_params)
+        U = SU(u_params, 2*self.D)
         V = self.env_function(U)
-        assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
+        #assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
-        qbs = cirq.LineQubit.range(4)
+        qbs = cirq.LineQubit.range(int(2+2*log2(self.D)))
         sim = cirq.Simulator()
 
         C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
@@ -150,7 +149,7 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         return f
 
     def update_state(self):
-        self.U = U4(self.optimized_result.x)
+        self.U = SU(self.optimized_result.x, 2*self.D)
 
 class SparseFullEnergyOptimizer(Optimizer):
     def __init__(self, 
