@@ -4,7 +4,7 @@ from .represent import get_env_exact, full_tomography_env_objective_function
 from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
-from numpy import array, real, kron, eye, zeros
+from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
 from numpy import log2, trace
@@ -154,9 +154,9 @@ class SparseFullEnergyOptimizer(Optimizer):
     def __init__(self, 
                  H, 
                  D=2, 
+                 depth=2,
                  env_optimizer=HorizontalSwapOptimizer,
-                 env_depth=2,
-                 depth=3,
+                 env_depth=4,
                  initial_guess = None, 
                  settings: Dict = None):
         self.env_optimizer = env_optimizer
@@ -187,43 +187,86 @@ class SparseFullEnergyOptimizer(Optimizer):
         f =  real(ψ.conj().T@H@ψ)
         return f
 
-class NoisySparseFullEnergyOptimizer(Optimizer):
+class NoisyNonSparseFullEnergyOptimizer(Optimizer):
+    """NonSparseFullEnergyOptimizer
+
+    NonSparse: not a low depth variational optimizer
+    Full: simulates the full wavefunction i.e. not via sampling"""
     def __init__(self, 
                  H, 
+                 depolarizing_prob,
                  D=2, 
-                 env_optimizer=HorizontalSwapOptimizer,
-                 env_depth=2,
-                 depth=3,
+                 get_env_function=get_env_exact,
                  initial_guess=None, 
                  settings: Dict = None):
-        self.env_optimizer = env_optimizer
-        self.env_depth = env_depth
+        self.get_env = get_env_function
+        if D!=2:
+            raise NotImplementedError('D>2 not implemented')
         self.H = H
         self.D = D
         self.d = 2
-        initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
-        self.p = len(initial_guess)
-        u_original = ShallowStateTensor(D, initial_guess)
+        self.depolarizing_prob = depolarizing_prob
+        initial_guess = (randn(15) if initial_guess is None else initial_guess)
+        u_original = FullStateTensor(U4(initial_guess))
         v_original = None
 
         super().__init__(u_original, v_original,
-                         initial_guess=initial_guess, settings=None)
+                         initial_guess=initial_guess)
 
-    def objective_function(self, u_params):
-        U = ShallowStateTensor(self.D, u_params)
-        #V = self.env_optimizer(U, self.env_depth).get_env().v
-        V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
+    def objective_function_density_matrix(self, u_params):
+        U = U4(u_params)
+        V = self.get_env(U)
+        assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
-        qbs = cirq.LineQubit.range(2+V.num_qubits())
-        sim = cirq.Simulator()
+        qbs = cirq.LineQubit.range(4)
 
-        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
-        H = kron(kron(eye(self.D), self.H), eye(self.D))
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs)))
 
-        ψ = sim.simulate(C).final_state
+        noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
 
-        f =  real(ψ.conj().T@H@ψ)
+        system_qubits = sorted(C.all_qubits())
+        noisy_circuit = cirq.Circuit()
+        for moment in C:
+            noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
+
+        sim = cirq.DensityMatrixSimulator(noise=noise)
+        ρ = sim.simulate(noisy_circuit).final_density_matrix
+
+        f =  real(trace(ρ@H))
         return f
+
+    def objective_function_monte_carlo(self, u_params):
+        U = U4(u_params)
+        V = self.get_env(U)
+        assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
+
+        qbs = cirq.LineQubit.range(4)
+
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs)))
+
+        noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
+
+        system_qubits = sorted(C.all_qubits())
+        noisy_circuit = cirq.Circuit()
+        for moment in C:
+            noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
+
+        sim = cirq.Simulator()
+        ψ = sim.simulate(noisy_circuit).final_state
+        H = kron(kron(eye(2), self.H), eye(2))
+        f = real(ψ.conj().T@H@ψ)
+
+        #sim = cirq.DensityMatrixSimulator(noise=noise)
+        #ρ = sim.simulate(noisy_circuit).final_density_matrix
+
+        #f =  real(trace(ρ@H))
+        return f
+    
+    def objective_function(self, u_params):
+        return self.objective_function_monte_carlo(u_params)
+
+    def update_state(self):
+        self.U = U4(self.optimized_result.x)
 
 def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
     """optimize H = -J*ZZ+gX
