@@ -66,7 +66,6 @@ class TestGroundState(unittest.TestCase):
             ψ = sim.simulate(circuit).final_state
             O = Hamiltonian({string: 1}).to_matrix()
             ev = np.around(np.real(ψ.conj().T@O@ψ), 3)
-
             c = circuit.copy()
             c.append([PauliMeasure(string)(*qubits), cirq.measure(qubits[0], key=string)])
             meas = sim.run(c, repetitions=10000).measurements[string]
@@ -93,7 +92,7 @@ class TestGroundState(unittest.TestCase):
     @unittest.skip('x')
     def test_NonSparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
-            gs = np.linspace(0, 5, 10)
+            gs = np.linspace(0, 2, 20)
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -108,8 +107,8 @@ class TestGroundState(unittest.TestCase):
                                [0,g/2,g/2,J]] )
 
 
-                ψ, e = find_ground_state(H, 2)
-                xmps_es.append(e[-1])
+                #ψ, e = find_ground_state(H, 2)
+                #xmps_es.append(e[-1])
 
                 opt = NonSparseFullEnergyOptimizer(H)
                 sets = opt.settings
@@ -123,13 +122,18 @@ class TestGroundState(unittest.TestCase):
                 opt.optimize()
                 tm = iMPS([unitary_to_tensor(opt.U)]).transfer_matrix().asmatrix()
 
-                print(opt.obj_fun_values[-1], e[-1], E0_exact)
+                print(opt.obj_fun_values[-1], E0_exact)
                 qmps_es.append(opt.obj_fun_values[-1])
-            plt.plot(gs, exact_es)
-            plt.plot(gs, xmps_es)
-            plt.plot(gs, qmps_es)
+            plt.plot(gs, exact_es, label='exact')
+            #plt.plot(gs, xmps_es)
+            plt.plot(gs, qmps_es, label='optimized')
+            plt.xlabel('$\\lambda$')
+            plt.ylabel('$E_0$')
+            plt.legend()
+            plt.savefig('/Users/fergusbarratt/Desktop/gs_opt.pdf', bbox_inches='tight')
             plt.show()
 
+    @unittest.skip('x')
     def test_NoisyNonSparseFullEnergyOptimizer_no_noise(self):
         for AL, AR, C in [self.As[0]]:
             J, g = -1, 1 
@@ -147,7 +151,7 @@ class TestGroundState(unittest.TestCase):
 
     def test_NoisyNonSparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
-            gs = np.linspace(0, 5, 100)
+            gs = np.linspace(0, 2, 10)
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -161,16 +165,16 @@ class TestGroundState(unittest.TestCase):
                                [g/2,0,-J,g/2], 
                                [0,g/2,g/2,J]] )
 
-                ψ, e = find_ground_state(H, 2)
-                xmps_es.append(e[-1])
+    #            ψ, e = find_ground_state(H, 2)
+    #            xmps_es.append(e[-1])
 
-                opt = NoisyNonSparseFullEnergyOptimizer(H, 0.1)
+                opt = NoisyNonSparseFullEnergyOptimizer(H, 1e-2)
                 sets = opt.settings
                 sets['store_values'] = True
                 sets['method'] = 'Nelder-Mead'
                 sets['verbose'] = True
-                sets['maxiter'] = 5000
-                sets['tol'] = 1e-5
+                #sets['maxiter'] = 5000
+                #sets['tol'] = 1e-5
 
                 opt.change_settings(sets)
                 opt.optimize()
@@ -178,20 +182,20 @@ class TestGroundState(unittest.TestCase):
                 qmps_es.append(opt.obj_fun_values[-1])
                 #self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
             qmps_norm = norm(np.array(exact_es)-np.array(qmps_es))
-            xmps_norm = norm(np.array(exact_es)-np.array(xmps_es))
-            print('xmps norm', xmps_norm)
+    #        xmps_norm = norm(np.array(exact_es)-np.array(xmps_es))
+    #        print('xmps norm', xmps_norm)
             print('qmps norm', qmps_norm)
 
             #self.assertTrue(qmps_norm < 1e-1 or qmps_norm < xmps_norm)
             plt.plot(gs, exact_es)
-            plt.plot(gs, xmps_es)
+    #        plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
 
-    @unittest.skip('slow')
+    @unittest.skip('x')
     def test_SparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
-            gs = np.linspace(0.1, 5, 10)
+            gs = np.linspace(0.2, 2, 10)
             exact_es = []
             qmps_es = []
             xmps_es = []
@@ -206,10 +210,10 @@ class TestGroundState(unittest.TestCase):
                                [0,g/2,g/2,J]] )
 
 
-                ψ, e = find_ground_state(H, 2)
-                xmps_es.append(e[-1])
+                #ψ, e = find_ground_state(H, 2)
+                #xmps_es.append(e[-1])
 
-                opt = SparseFullEnergyOptimizer(H, 2)
+                opt = SparseFullEnergyOptimizer(H, 4, 4)
                 sets = opt.settings
                 sets['store_values'] = True
                 sets['method'] = 'Nelder-Mead'
@@ -222,13 +226,16 @@ class TestGroundState(unittest.TestCase):
                 qmps_es.append(opt.obj_fun_values[-1])
                 self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
             qmps_norm = norm(np.array(exact_es)-np.array(qmps_es))
-            xmps_norm = norm(np.array(exact_es)-np.array(xmps_es))
-            print('xmps norm', xmps_norm)
+            #xmps_norm = norm(np.array(exact_es)-np.array(xmps_es))
+            #print('xmps norm', xmps_norm)
             print('qmps norm', qmps_norm)
 
-            self.assertTrue(qmps_norm < 1e-1 or qmps_norm < xmps_norm)
+            #self.assertTrue(qmps_norm < 1e-1 or qmps_norm < xmps_norm)
+            plt.title('D=4, qaoa depth 3 ansatz')
             plt.plot(gs, exact_es)
-            plt.plot(gs, xmps_es)
+            plt.xlabel('$\\lambda$')
+            plt.ylabel('$E_0$')
+            #plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
 

@@ -156,9 +156,9 @@ class SparseFullEnergyOptimizer(Optimizer):
     def __init__(self, 
                  H, 
                  D=2, 
+                 depth=2,
                  env_optimizer=HorizontalSwapOptimizer,
-                 env_depth=2,
-                 depth=3,
+                 env_depth=4,
                  initial_guess = None, 
                  settings: Dict = None):
         self.env_optimizer = env_optimizer
