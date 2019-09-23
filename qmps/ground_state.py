@@ -1,13 +1,15 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
-from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowEnvironment
+from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
 from numpy import log2, trace
+from xmps.spin import swap
+import numpy as np
 
 from xmps.spin import N_body_spins, U4, spins, SU
 
@@ -132,7 +134,8 @@ class NonSparseFullEnergyOptimizer(Optimizer):
         super().__init__(u_original, v_original, initial_guess)
 
     def objective_function(self, u_params):
-        U = SU(u_params, 2*self.D)
+        self.U = U = SU(u_params, 2*self.D)
+
         V = self.env_function(U)
         #assert abs(full_tomography_env_objective_function(FullStateTensor(U), FullEnvironment(V)))<1e-6
 
@@ -157,22 +160,24 @@ class SparseFullEnergyOptimizer(Optimizer):
                  depth=2,
                  env_optimizer=HorizontalSwapOptimizer,
                  env_depth=4,
+                 state_tensor=ShallowCNOTStateTensor,
                  initial_guess = None, 
                  settings: Dict = None):
         self.env_optimizer = env_optimizer
         self.env_depth = env_depth
+        self.state_tensor=state_tensor
         self.H = H
         self.D = D
         self.d = 2
         initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
         self.p = len(initial_guess)
-        u_original = ShallowStateTensor(D, initial_guess)
+        u_original = self.state_tensor(D, initial_guess)
         v_original = None
 
         super().__init__(u_original, v_original, initial_guess)
 
     def objective_function(self, u_params):
-        U = ShallowStateTensor(self.D, u_params)
+        U = self.state_tensor(self.D, u_params)
         #V = self.env_optimizer(U, self.env_depth).get_env().v
         V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
 
@@ -268,65 +273,61 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     def update_state(self):
         self.U = U4(self.optimized_result.x)
 
-def optimize_ising_D_2(J, λ, sample=False, reps=10000, testing=False):
-    """optimize H = -J*ZZ+gX
-    """
-    def sampled_energy(U, V, J, λ, reps=reps):
-        qbs = cirq.LineQubit.range(4)
+class NoisySparseFullEnergyOptimizer(Optimizer):
+    """NonSparseFullEnergyOptimizer
+
+    NonSparse: not a low depth variational optimizer
+    Full: simulates the full wavefunction i.e. not via sampling"""
+    def __init__(self, 
+                 H, 
+                 depolarizing_prob,
+                 D=2, 
+                 depth=2,
+                 env_optimizer=HorizontalSwapOptimizer,
+                 env_depth=4,
+                 state_tensor=ShallowCNOTStateTensor,
+                 initial_guess = None, 
+                 settings: Dict = None):
+        self.env_optimizer = env_optimizer
+        self.env_depth = env_depth
+        self.state_tensor=state_tensor
+        self.H = H
+        self.D = D
+        self.d = 2
+        initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
+        self.p = len(initial_guess)
+        u_original = self.state_tensor(D, initial_guess)
+        v_original = None
+
+        self.depolarizing_prob = depolarizing_prob
+
+        super().__init__(u_original, v_original, initial_guess)
+
+    def objective_function_monte_carlo(self, u_params):
+        U = self.state_tensor(self.D, u_params)
+        V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
+
+        qbs = cirq.LineQubit.range(int(2*np.log2(self.D)+2))
+
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(U, V, 2)(*qbs)))
+
+        noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
+
+        system_qubits = sorted(C.all_qubits())
+        noisy_circuit = cirq.Circuit()
+        for moment in C:
+            noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
+
         sim = cirq.Simulator()
+        ψ = sim.simulate(noisy_circuit).final_state
+        H = kron(kron(eye(self.D), self.H), eye(self.D))
+        f = real(ψ.conj().T@H@ψ)
 
-        # create the circuit for 2 local measurements
-        C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2))
+        #sim = cirq.DensityMatrixSimulator(noise=noise)
+        #ρ = sim.simulate(noisy_circuit).final_density_matrix
 
-        C_ = C.copy()
-        # measure ZZ
-        C_.append([cirq.CNOT(qbs[2], qbs[1]), cirq.measure(qbs[1], key='zz')]) 
-        meas = sim.run(C_, repetitions=reps).measurements['zz']
-        zz = array(list(map(lambda x: 1-2*int(x), meas))).mean()
-
-        C_ = C.copy()
-        # measure X
-        C_.append([cirq.H(qbs[2]), cirq.measure(qbs[2], key='x')])
-        meas = sim.run(C_, repetitions=reps).measurements['x']
-        x = array(list(map(lambda x: 1-2*int(x), meas))).mean()
-        return J*zz+λ*x
-
-    def full_energy(U, V, λ):
-        qbs = cirq.LineQubit.range(4)
-        sim = cirq.Simulator()
-
-        C =  cirq.Circuit().from_ops(State(FullStateTensor(U), FullEnvironment(V), 2)(*qbs))
-        IZZI = 4*N_body_spins(0.5, 2, 4)[2]@N_body_spins(0.5, 3, 4)[2]
-        IIXI = 2*N_body_spins(0.5, 3, 4)[0]
-        IXII = 2*N_body_spins(0.5, 2, 4)[0]
-        ψ = sim.simulate(C).final_state
-        return real(ψ.conj().T@(J*IZZI+λ*(IXII+IIXI)/2)@ψ)
-
-    def optimize_energy(N=400, env_update=1, ϵ=1e-1, e_fun = sampled_energy if sample else full_energy):
-        """minimizes ising energy in a full parametrisation of SU(4)
-           u at each time step is a 15d real vector, with U4(u) = exp(-iu⋅σ), 
-           σ the vector of generators of SU(4).
-
-        :param N: how many steps to take
-        :param env_update: update the environment every env_update steps
-        :param ϵ: time step (learning rate)
-        :param e_fun: whether to use the sampled or full energy function
-        """
-        def f(u, V, λ): return full_energy(U4(u), V, λ)
-        
-        u = randn(15) # initial value of u
-        V = get_env(U4(u)) # get initial value of V
-
-        for n in range(N):
-            du = ϵ*approx_fprime(u, f, ϵ, V, 1)
-            u -= du
-            if not n%env_update:
-                print('\nupdating environment\n')
-                V = get_env(U4(u), environment_from_unitary(V))
-            print(f(u, V, λ))
-
-        U = U4(u)
-        return U, V
-
-    U, V = optimize_energy()
-    return U, V
+        #f =  real(trace(ρ@H))
+        return f
+    
+    def objective_function(self, u_params):
+        return self.objective_function_monte_carlo(u_params)

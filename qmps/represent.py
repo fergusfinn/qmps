@@ -237,6 +237,26 @@ class ShallowStateTensor(cirq.Gate):
     def _circuit_diagram_info_(self, args):
         return ['U'] * self.n_qubits
 
+class ShallowCNOTStateTensor(cirq.Gate):
+    def __init__(self, bond_dim, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _decompose_(self, qubits):
+        return [[cirq.X(qubit) ** β for qubit in qubits] + \
+                [cirq.Z(qubit) ** γ for qubit in qubits] + \
+                [cirq.H(qubits[0])]+\
+                list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) +\
+                [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
+                for β, γ in split_2s(self.βγs)]
+
+    def _circuit_diagram_info_(self, args):
+        return ['U'] * self.n_qubits
+
 
 class ShallowEnvironment(cirq.Gate):
     """ShallowEnvironmentTensor: shallow environment tensor based on the QAOA circuit"""
