@@ -16,7 +16,7 @@ qmps_es = []
 
 import itertools
 
-noise_strength = 1e-3
+noise_strength = 1e-2
 marker = itertools.cycle(['x', '.', ',', '+', '*'])
 ps = range(2, 3)
 gs = np.linspace(0.1, 2, 3)
@@ -46,6 +46,7 @@ for i, p in enumerate(ps):
         sets['method'] = 'Powell'
         sets['maxiter'] = 20
         sets['tol'] = 1e-5
+        sets['bayesian'] = True
         opt.change_settings(sets)
         opt.optimize()
         print(g)
@@ -55,7 +56,7 @@ for i, p in enumerate(ps):
         if j==0:
             first_initial_guess = initial_guess
 
-        es.append(opt.obj_fun_values[-1])
+        es.append(opt.optimized_result.fun)
 
     plt.scatter(gs, es, marker=next(marker), s=35)
     plt.plot(gs, es, label=str(p))

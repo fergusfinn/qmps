@@ -7,6 +7,7 @@ import numpy as np
 from xmps.spin import U4
 from scipy.linalg import null_space, norm, svd
 from scipy.optimize import minimize
+from skopt import gp_minimize
 from qmps.States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 import os
@@ -175,7 +176,8 @@ class Optimizer:
             'verbose': True,
             'method': 'Nelder-Mead',
             'tol': 1e-8,
-            'store_values': True
+            'store_values': True,
+            'bayesian': False,
         }
         self.is_verbose = self.settings['verbose']
         self.circuit = OptimizerCircuit()
@@ -216,10 +218,13 @@ class Optimizer:
                   'options': options,
                   'callback': self.callback_store_values if self.settings['store_values'] else None}
 
-        self.optimized_result = minimize(**kwargs)
+        if self.settings['bayesian']:
+            self.optimized_result = gp_minimize(self.objective_function, [(-np.pi, np.pi)]*(len(self.initial_guess)))
+        else:
+            self.optimized_result = minimize(**kwargs)
         # maybe implement genetic evolution algorithm or particle swarm?
         self.update_state()
-        if self.is_verbose:
+        if self.is_verbose and not self.settings['bayesian']:
             print(f'Reason for termination is {self.optimized_result.message} ' +
                   f'\nObjective Function Value is {self.optimized_result.fun}')
 
