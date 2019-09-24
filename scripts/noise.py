@@ -16,10 +16,10 @@ qmps_es = []
 
 import itertools
 
-noise_strength = 1e-2
+noise_strength = 5e-4
 marker = itertools.cycle(['x', '.', ',', '+', '*'])
-ps = range(2, 3)
-gs = np.linspace(0.1, 2, 3)
+ps = range(2, 7)
+gs = np.linspace(0.1, 2, 10)
 for i, p in enumerate(ps):
     if i==0:
         first_initial_guess = ra.randn(2*p)
