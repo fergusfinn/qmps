@@ -21,7 +21,7 @@ es = []
 Ds = (2**np.arange(1, 5)).astype(int)
 initial_guess = None
 
-def fixindices(v, ϵ = 1e-2):
+def fixindices(v, ϵ = 4e-2):
     # don't feed the parameters straight into the 
     # lie algebra but add a swap and perturb slightly (ϵ)
     # necessary to embed D=2 result into D=4 &c. 

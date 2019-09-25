@@ -51,7 +51,8 @@ class TestTimeEvolve(unittest.TestCase):
                 dA = A.dA_dt([H])*dt
                 es.append(A.e)
                 A = (A+dA).left_canonicalise()
-                evs.append(A.Es([Sx, Sy, Sz])) '''
+                evs.append(A.Es([Sx, Sy, Sz])) 
+                '''
                 Below is the cirq time evolution. Gate is made using scipy.expm(H) * dt which is put into a Tensor, and 
                 and this is the hamiltonian.
                 '''
