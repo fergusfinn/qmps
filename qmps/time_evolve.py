@@ -7,7 +7,6 @@ import numpy as np
 from scipy.linalg import expm
 from typing import Dict
 
-
 class MPSTimeEvolve:
     def __init__(self, u_initial: cirq.Gate, hamiltonian: cirq.Gate, v_initial: cirq.Gate = None, depth: int=0,
                  settings=None, optimizer_settings=None,

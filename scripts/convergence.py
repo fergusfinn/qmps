@@ -54,7 +54,7 @@ def example_DMRG_heisenberg_xxz_infinite(Jx=1, Jy=1, Jz=1, hx=0, hy=0, hz=0, con
 
 if __name__=='__main__':
     N = 30
-    chis = (2**np.arange(0, 8)).astype(int)
+    chis = (2**np.arange(1, 8)).astype(int)
     print(chis)
     e1s = []
     e2s = []
@@ -69,6 +69,7 @@ if __name__=='__main__':
         e2s.append(e2)
         e3s.append(e3)
         e4s.append(e4)
+        print(e1, e2, e3, e4)
     e1s = np.array(e1s)
     e2s = np.array(e2s)
     e3s = np.array(e3s)
