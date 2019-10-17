@@ -259,10 +259,11 @@ class ShallowCNOTStateTensor(cirq.Gate):
         return ['U'] * self.n_qubits
 
 class ShallowFullStateTensor(cirq.Gate):
-    def __init__(self, bond_dim, βγs):
+    def __init__(self, bond_dim, βγs, symbol='U'):
         self.βγs = βγs
         self.p = len(βγs)
         self.n_qubits = int(log2(bond_dim)) + 1
+        self.symbol = symbol
 
     def num_qubits(self):
         return self.n_qubits
@@ -279,7 +280,7 @@ class ShallowFullStateTensor(cirq.Gate):
                 cirq.Rz(self.βγs[12])(qubits[1]), cirq.Rx(self.βγs[13])(qubits[1]), cirq.Rz(self.βγs[14])(qubits[1])]
 
     def _circuit_diagram_info_(self, args):
-        return ['U'] * self.n_qubits
+        return [self.symbol] * self.n_qubits
 
 
 
@@ -301,7 +302,6 @@ class ShallowEnvironment(cirq.Gate):
 
     def _circuit_diagram_info_(self, args):
         return ['V'] * self.n_qubits
-
 
 class HorizontalSwapTest(cirq.Gate):
     def __init__(self, u: cirq.Gate, v: cirq.Gate, bond_dim: int):
