@@ -57,7 +57,8 @@ class MPSTimeEvolve:
     def get_u_params(self):
 
         self.TimeEvoOptimizer = TimeEvolveOptimizer(self.u, self.v, hamiltonian=self.hamiltonian,
-                                                    initial_guess=self.initial_guess_u, **self.kwargs)
+                                                    initial_guess=self.initial_guess_u, simulate='Simulate',
+                                                    **self.kwargs)
         self.TimeEvoOptimizer.change_settings(self.settings)
         self.TimeEvoOptimizer.optimize()
         self.initial_guess_u = self.TimeEvoOptimizer.optimized_result.x
@@ -66,7 +67,7 @@ class MPSTimeEvolve:
     def evolve_single_step(self):
         self.u = self.get_u_params().u
         #self.v = self.get_v_params().v
-        self.v = FullStateTensor(get_env_exact(cirq.unitary(self.u)))
+        # self.v = FullStateTensor(get_env_exact(cirq.unitary(self.u)))
 
     def evolve_multiple_steps(self, steps):
         for _ in range(steps):

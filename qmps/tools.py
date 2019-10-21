@@ -11,7 +11,7 @@ from xmps.iMPS import iMPS, TransferMatrix
 from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
 
-from qmps.States import FullStateTensor, ShallowStateTensor, State, ShallowEnvironment
+from qmps.States import FullStateTensor, ShallowStateTensor, State, ShallowEnvironment, FullEnvironment
 import matplotlib.pyplot as plt
 import os
 import cirq
@@ -460,6 +460,35 @@ class VerticalStateFullSimulate(StateFullOptimizer):
         state_unitary = U4(params)
         environment_unitary = get_env_exact(state_unitary)
 
+        target_u = FullStateTensor(state_unitary)
+        target_v = FullEnvironment(environment_unitary)
+        physical_qubits = self.hamiltonian.num_qubits()
+
+        original_state = State(self.u, self.v, n=physical_qubits)
+        target_state = State(target_u, self.v, n=physical_qubits)
+
+        aux_qubits = int(self.v.num_qubits() / 2)
+        qubits = cirq.LineQubit.range(original_state.num_qubits())
+        self.circuit.circuit = cirq.Circuit.from_ops([original_state.on(*qubits),
+                                                      # cirq.Rx(1 * 1/400).on(qubits[1]),
+                                                      # cirq.Rx(1 * 1/400).on(qubits[2]),
+                                                      self.hamiltonian.on(*qubits[aux_qubits:aux_qubits
+                                                                                  + physical_qubits]),
+                                                      cirq.inverse(target_state.on(*qubits))])
+
+        simulator = cirq.Simulator()
+        results = simulator.simulate(self.circuit.circuit)
+
+        final_state = results.final_simulator_state.state_vector[0]
+        score = np.abs(final_state) ** 2
+        return 1 - score
+
+
+class VerticalStateFullSample(StateFullOptimizer):
+    def objective_function(self, params):
+        state_unitary = U4(params)
+        environment_unitary = get_env_exact(state_unitary)
+
         target_u = FullStateTensor(U4(params))
         target_v = FullStateTensor(environment_unitary)
         physical_qubits = self.hamiltonian.num_qubits()
@@ -472,14 +501,16 @@ class VerticalStateFullSimulate(StateFullOptimizer):
         self.circuit.circuit = cirq.Circuit.from_ops([original_state(*qubits),
                                                       self.hamiltonian(
                                                           *qubits[aux_qubits:aux_qubits + physical_qubits]),
-                                                      cirq.inverse(target_state).on(*qubits)])
-
+                                                      cirq.inverse(target_state).on(*qubits),
+                                                      cirq.MeasurementGate(num_qubits=original_state.num_qubits(),
+                                                                           key="bit_string").on(*qubits)])
+        total_reps = 10000
         simulator = cirq.Simulator()
-        results = simulator.simulate(self.circuit.circuit)
-
-        final_state = results.final_simulator_state.state_vector[0]
-        score = np.abs(final_state) ** 2
-        return 1 - score
+        results = simulator.run(self.circuit.circuit, repetitions=total_reps)
+        count = results.multi_measurement_histogram(keys=['bit_string'])
+        num_all_zeros = count[(0,)]
+        prob_all_zeros = num_all_zeros/total_reps
+        return 1 - prob_all_zeros
 
 
 class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
@@ -800,14 +831,12 @@ class TimeEvolveOptimizer:
                     'Horizontal': None
                 },
                 'Sample': {
-                    'Vertical': None,
+                    'Vertical': VerticalStateFullSample,
                     'Horizontal': None
                 }
             }
         }
         return optimizer_choice[ansatz][simulate][vertical](u, v, hamiltonian=hamiltonian, **kwargs)
-
-
 
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
@@ -836,6 +865,7 @@ def sampled_bloch_vector_of(qubit, circuit, reps=1000000):
 
     return -2*array([x, y, z])+1
 
+
 def random_sparse_circuit(length, depth=10, p=0.5):
     '''10.1103/PhysRevA.75.062314'''
     qubits = cirq.LineQubit.range(length)
@@ -861,6 +891,7 @@ def random_sparse_circuit(length, depth=10, p=0.5):
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
 
+
 def random_circuit(length, depth=10, p=0.5, ψχϕs=None):
     qubits = cirq.LineQubit.range(length)
     circuit = cirq.Circuit()
@@ -885,6 +916,7 @@ def random_circuit(length, depth=10, p=0.5, ψχϕs=None):
                 circuit.append(cirq.CNOT(qubits[i+1], qubits[i]))
     return circuit
 
+
 def random_qaoa_circuit(length, depth=1, βγs=None):
     """qaoa_circuit: qaoa circuit with qubits - useful for testing.
     """
@@ -895,6 +927,7 @@ def random_qaoa_circuit(length, depth=1, βγs=None):
                                    [cirq.ZZ(qubits[i], qubits[i+1])**γ for i in range(len(qubits)-1)]
                                    for β, γ in βγs[i]] for i in range(depth)])
     return c
+
 
 def random_full_rank_circuit(length, depth, ψχϕs=None):
     ψχϕs = [[(None, None, None) for _ in range(length)]

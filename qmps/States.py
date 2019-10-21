@@ -25,11 +25,11 @@ class Tensor(cirq.Gate):
     def _circuit_diagram_info_(self, args):
         return [self.symbol] * self.n_qubits
 
-    def __pow__(self, power, modulo=None):
-        if power == -1:
-            return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
-        else:
-            return self.__class__(np.linalg.multi_dot([self.U] * power))
+    # def __pow__(self, power, modulo=None):
+    #     if power == -1:
+    #         return self.__class__(self.U.conj().T, symbol=self.symbol + '†')
+    #     else:
+    #         return self.__class__(np.linalg.multi_dot([self.U] * power))
 
 
 class StateTensor(Tensor):
@@ -131,17 +131,19 @@ class ShallowEnvironment(cirq.Gate):
 
 
 class IsingHamiltonian(cirq.TwoQubitGate):
-    def __init__(self, lamda, delta):
-        self.l = lamda
-        self.d = delta
-        self.t = -2 * self.d / np.pi
-
-    def num_qubits(self):
-        return 2
+    def __init__(self, J, g, dt):
+        self.J = J
+        self.g = g
+        self.dt = dt
 
     def _decompose_(self, qubits):
-        return cirq.XPowGate(exponent=self.t).on(qubits[0]), cirq.XPowGate(exponent=self.t).on(qubits[1]), \
-               cirq.ZZPowGate(exponent=self.t).on(*qubits)
+        dt = self.dt
+        J = self.J
+        g = self.g
+        x_exponent = g * dt / np.pi
+        z_exponent = 2 * J * dt / np.pi
+        return cirq.XPowGate(exponent=x_exponent).on(qubits[0]), cirq.XPowGate(exponent=x_exponent).on(qubits[1]), \
+               cirq.ZZPowGate(exponent=z_exponent).on(*qubits)
 
     def _circuit_diagram_info_(self, args):
         return 'H'

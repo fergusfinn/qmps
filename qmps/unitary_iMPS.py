@@ -20,7 +20,7 @@ from scipy.linalg import norm
 from scipy.optimize import minimize
 from scipy.optimize import approx_fprime
 
-from xmps.spin import U4 # 15d real parametrisation of SU(2)
+from xmps.spin import U4  # 15d real parametrisation of SU(2)
 from xmps.spin import N_body_spins
 from scipy.linalg import null_space
 

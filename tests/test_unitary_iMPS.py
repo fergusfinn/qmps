@@ -1,14 +1,10 @@
-import unittest
-
-from xmps.iMPS import iMPS, Map, TransferMatrix
-from xmps.tensor import embed, deembed
-from .unitary_iMPS import *
+from xmps.iMPS import iMPS, Map
+from qmps.unitary_iMPS import *
 from .random_unitaries import random_unitary
 import cirq
-from .SwapTest import swap_objective_function
+# from SwapTest import swap_objective_function
 from numpy import allclose
 from numpy.random import randn
-from numpy.linalg import qr
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
