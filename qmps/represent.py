@@ -2,12 +2,13 @@ import cirq
 
 from xmps.iMPS import iMPS, TransferMatrix
 
-from .tools import cT, direct_sum, unitary_extension,sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s 
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s
 from .tools import from_real_vector, to_real_vector, environment_to_unitary
 from .tools import unitary_to_tensor
-
+from xmps.spin import U4
 from typing import List, Callable, Dict
-
+from .States import State, FullStateTensor, FullEnvironment
+from .tools import RepresentMPS
 from numpy import concatenate, allclose, tensordot, swapaxes, log2
 from numpy.linalg import eig
 from numpy import diag
@@ -137,7 +138,6 @@ def full_tomography_env_objective_function(U, V):
 # Tensor, StateTensor, Environment, State  #
 ############################################ 
 
-
 class Tensor(cirq.Gate):
     def __init__(self, unitary, symbol):
         self.U = unitary
@@ -238,6 +238,52 @@ class ShallowStateTensor(cirq.Gate):
         return ['U'] * self.n_qubits
 
 
+class ShallowCNOTStateTensor(cirq.Gate):
+    def __init__(self, bond_dim, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _decompose_(self, qubits):
+        return [[cirq.Rz(β)(qubit) for qubit in [qubits[1]]] + \
+                [cirq.Rx(γ)(qubit) for qubit in [qubits[0]]] + \
+                [cirq.H(qubits[0])]+\
+                list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) +\
+                [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
+                for β, γ in split_2s(self.βγs)]
+
+    def _circuit_diagram_info_(self, args):
+        return ['U'] * self.n_qubits
+
+class ShallowFullStateTensor(cirq.Gate):
+    def __init__(self, bond_dim, βγs, symbol='U'):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+        self.symbol = symbol
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _decompose_(self, qubits):
+        return [cirq.Rz(self.βγs[0])(qubits[0]), cirq.Rx(self.βγs[1])(qubits[0]), cirq.Rz(self.βγs[2])(qubits[0]),
+                cirq.Rz(self.βγs[3])(qubits[1]), cirq.Rx(self.βγs[4])(qubits[1]), cirq.Rz(self.βγs[5])(qubits[1]),
+                cirq.CNOT(qubits[0], qubits[1]),
+                cirq.Ry(self.βγs[6])(qubits[0]),
+                cirq.CNOT(qubits[1], qubits[0]),
+                cirq.Ry(self.βγs[7])(qubits[0]), cirq.Rz(self.βγs[8])(qubits[1]),
+                cirq.CNOT(qubits[0], qubits[1]),
+                cirq.Rz(self.βγs[9])(qubits[0]), cirq.Rx(self.βγs[10])(qubits[0]), cirq.Rz(self.βγs[11])(qubits[0]),
+                cirq.Rz(self.βγs[12])(qubits[1]), cirq.Rx(self.βγs[13])(qubits[1]), cirq.Rz(self.βγs[14])(qubits[1])]
+
+    def _circuit_diagram_info_(self, args):
+        return [self.symbol] * self.n_qubits
+
+
+
 class ShallowEnvironment(cirq.Gate):
     """ShallowEnvironmentTensor: shallow environment tensor based on the QAOA circuit"""
 
@@ -256,7 +302,6 @@ class ShallowEnvironment(cirq.Gate):
 
     def _circuit_diagram_info_(self, args):
         return ['V'] * self.n_qubits
-
 
 class HorizontalSwapTest(cirq.Gate):
     def __init__(self, u: cirq.Gate, v: cirq.Gate, bond_dim: int):
@@ -405,3 +450,5 @@ class HorizontalSwapOptimizer(Optimizer):
         v_params = self.optimized_result.x
         self.v = ShallowEnvironment(self.bond_dim, v_params)
 
+def get_env_swap_test(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs):
+    return RepresentMPS(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs)
