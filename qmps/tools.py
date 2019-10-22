@@ -501,52 +501,64 @@ class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
 class HorizontalEvoFullSimulate(EvoFullOptimizer):
 
     def objective_function(self, params):
+        '''
+        Circuit 1:              Circuit 2:              Circuit 3:
+        Trace distance objective function:
+        |   |   |   |   |   |`  |   |   |   |   |   |   |   |   |   |   |
+        |   |-V-|   |   |   |`  |   |-V-|   |   |-V-|   |   |   |   |   |
+        |-U-|   |   |-V-|   |`  |-U-|   |   |-U-|   |   |   |-V-|   |-V-|
+        @-----------X       |`  @-----------X           |   @-------X
+        H                   |`  H                       |   H
+                         break1 |                    break2 |
+                               rho                         sigma
+        '''
+
         environment = FullStateTensor(U4(params))
         state = State(self.u, environment, 1)
 
         state_qubits = state.num_qubits()
         env_qubits = environment.num_qubits()
 
-        total_qubits = state_qubits+env_qubits
-        self.circuit.total_qubits = state_qubits
+        aux_qubits = int(env_qubits/2)
+        control_qubits = list(range(aux_qubits))
 
+        target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
+
+        total_qubits = (2 * state_qubits)
         qubits = cirq.LineQubit.range(total_qubits)
-        self.circuit.qubits = qubits
 
-        aux_qubits = int(environment.num_qubits()/2)
-        self.circuit.aux_qubits = aux_qubits
+        cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
+        cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
+        cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
 
-        target_qubits = range(aux_qubits)
-        cnots = [cirq.CNOT(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
-        hadamards = [cirq.H(qubits[i]) for i in target_qubits]
-        ##############################
-        # measures = [cirq.measure(qubits[i], qubits[i+state_qubits]) for i in target_qubits]
-        ##############################
-        circuit = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
-                                          environment.on(*qubits[state_qubits:])] + cnots + hadamards)
-        ##############################
-        # circuit1 = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
-        #                                  environment.on(*qubits[state_qubits:])] + cnots + hadamards + measures)
-        ##############################
-        self.circuit.circuit = circuit
+        hadamards = [cirq.H(qubits[i]) for i in control_qubits]
+
+        circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          environment(*qubits[state_qubits: state_qubits+env_qubits])] +
+                                         cnots1 + hadamards)
+
+        circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
+
+        circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
+                                         environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 + hadamards)
 
         simulator = cirq.Simulator()
-        #################################
-        # results1 = simulator.run(circuit1, repetitions=500)
-        # measures1 = results1.measurements['0,3']
-        # both_ones = sum([1 if a and b else 0 for a, b in measures1])
-        # score1 = both_ones/500
-        #################################
-        results = simulator.simulate(circuit)
-        state_qubits = self.circuit.total_qubits
-        aux_qubits = self.circuit.aux_qubits
-        qubits = self.circuit.qubits
+        results1 = simulator.simulate(circuit1)
+        results2 = simulator.simulate(circuit2)
+        results3 = simulator.simulate(circuit3)
 
-        density_matrix_qubits = list(qubits[:aux_qubits]) + list(qubits[state_qubits:state_qubits+aux_qubits])
-        density_matrix = results.density_matrix_of(density_matrix_qubits)
-        prob_all_ones = density_matrix[-1, -1]
-        score = np.abs(prob_all_ones)
-        return score
+        circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
+        circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
+
+        r_s = 1 - 2*results1.density_matrix_of(circuit1qubits)[-1, -1]
+        r_squared = 1 - 2*results2.density_matrix_of(circuit1qubits)[-1, -1]
+        s_squared = 1 - 2*results3.density_matrix_of(circuit3qubits)[-1, -1]
+
+        score = (r_squared + s_squared - 2 * r_s).real
+        return np.abs(score)
 
 
 class HorizontalEvoQAOASimulate(EvoQAOAOptimizer):
@@ -592,21 +604,21 @@ class RepresentMPS:
         optimizer_choice = {
             'QAOA': {
                 'Simulate': {
-                    'Vertical': VerticalEvoQAOASimulate,
-                    'Horizontal': HorizontalEvoQAOASimulate
+                    'Vertical': None,
+                    'Horizontal': None
                 },
                 'Sample': {
-                    'Vertical': VerticalEvoQAOASample,
+                    'Vertical': None,
                     'Horizontal': None
                 }
             },
             'Full': {
                 'Simulate': {
-                    'Vertical': VerticalEvoFullSimulate,
+                    'Vertical': None,
                     'Horizontal': HorizontalEvoFullSimulate
                 },
                 'Sample': {
-                    'Vertical': VerticalEvoFullSample,
+                    'Vertical': None,
                     'Horizontal': None
                 }
             }
