@@ -1,7 +1,7 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
-from .represent import HorizontalSwapOptimizer, ShallowStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
+from .represent import HorizontalSwapOptimizer, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
 from numpy import array, real, kron, eye, trace, zeros

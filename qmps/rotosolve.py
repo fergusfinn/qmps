@@ -207,6 +207,10 @@ def double_rotosolve(H, state_function, initial_parameters, args=(), N_iters=5):
     for _ in range(N_iters):
         #H = Hamiltonian({'ZZ': 1, 'X': 0.5}).to_matrix()
 
+        def ϵ(x):
+            ψ = state_function(x, *args)
+            return np.real(ψ.conj().T@H@ψ)
+
         def ϵ_op(x):
             uv_state, u_state, v_state, e_state = state_function(x, 'uv_purity'), state_function(x, 'u_purity'), state_function(x, 'v_purity'), state_function(x, 'energy')
             v_purity = np.real(v_state.conj().T@np.kron(np.eye(2), np.kron(swap(), np.eye(2)))@v_state)
@@ -216,10 +220,6 @@ def double_rotosolve(H, state_function, initial_parameters, args=(), N_iters=5):
 
             k = 10
             return energy,+k*u_purity,+k*v_purity,-2*k*uv_purity
-
-        def ϵ_evo(x):
-            eig_state, norm_state = state_function(x, *args, 'eig'), state_function(x, *args, 'norm')
-            return 
 
 
         for i, _ in tqdm(enumerate(params)):
@@ -248,8 +248,7 @@ def double_rotosolve(H, state_function, initial_parameters, args=(), N_iters=5):
             #params[i] = np.arctan2(np.sin(params[i]), np.cos(params[i]))
         #double_sinusoids(H, state_function, params)
         es.append(ϵ(params))
-        print(es[-1], es[-1][1]+es[-1][2]+es[-1][3])
-    return np.array(es)
+    return np.array(es), params
 
 H = Hamiltonian({'ZZ': -1, 'X': 1}).to_matrix()
 #x = np.random.randn(30)

@@ -1,7 +1,9 @@
+from rotosolve import double_rotosolve
 import numpy as np
 import cirq
 from xmps.iMPS import iMPS, Map
 from qmps.represent import get_env_exact, FullStateTensor, Environment
+from qmps.represent import StateGate
 from qmps.tools import unitary_to_tensor, environment_from_unitary
 from scipy.linalg import expm
 from qmps.ground_state import Hamiltonian
@@ -198,63 +200,78 @@ def run_tests(N):
 def gate(v, symbol='U'):
     return ShallowFullStateTensor(2, v, symbol)
 
-def obj(p, A, WW):
+def state_gate(v, symbol='R'):
+    return StateGate(v, symbol)
+
+def obj(p_, A, WW):
+    p, rs = p_[:15], p_[15:]
+    
     B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
-
-    E = Map(np.tensordot(WW, merge(A, A), [1, 0]), merge(B, B))
-
-    x, r = E.right_fixed_point()
-    x_, l = E.left_fixed_point()
-    l = r
-    #r = np.eye(2)/np.sqrt(2)
-    #l = np.eye(2)/np.sqrt(2)
-
     U = Environment(tensor_to_unitary(A), 'U')
     U_ = Environment(tensor_to_unitary(B), 'U\'')
-
-    R = Environment(put_env_on_left_site(r), 'θR')
-    left = put_env_on_right_site(l.conj().T)
-    L = Environment(left, 'θL')
+    
+    R = state_gate(rs)
+    L = Environment(put_env_on_right_site(environment_from_unitary(cirq.unitary(R)).conj().T), 'L')
     
     W = Environment(WW, 'W')
-
-    qbs = cirq.LineQubit.range(6)
-    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+    
+    qbs = cirq.LineQubit.range(5)
+    C = cirq.Circuit.from_ops([R(*qbs[3:5]),
                                U(*qbs[2:4]),
                                U(*qbs[1:3]),
                                W(*qbs[2:4]),
                                L(*qbs[0:2]),
-                               R(*qbs[4:]),
                                cirq.inverse(U_)(*qbs[1:3]),
                                cirq.inverse(U_)(*qbs[2:4]),
                                cirq.CNOT(*qbs[3:5]), cirq.H(qbs[3])])
-    qbs = cirq.LineQubit.range(4)
-    normC = cirq.Circuit.from_ops([cirq.H(qbs[1]),
-                                   cirq.CNOT(*qbs[1:3]),
-                                   L(*qbs[:2]), 
-                                   R(*qbs[-2:]),
-                                   cirq.CNOT(*qbs[1:3]),
-                                   cirq.H(qbs[1])
-                                   ])
+    
     s = cirq.Simulator(dtype=np.complex128)
-    ff = np.sqrt(2*np.abs(s.simulate(C).final_state[0]))#/np.abs(s.simulate(normC).final_state[0])), np.sqrt(np.abs(x[0]))
-    #print(ff[0]-ff[1])
-    #print(ff[0], ff[1])
-    return -ff
+    return -np.sqrt(np.abs(np.sqrt(2)*s.simulate(C).final_state[0]))
+
+def obj_state(p_, A, WW):
+    p, rs = p_[:15], p_[15:]
+    
+    B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
+    U = Environment(tensor_to_unitary(A), 'U')
+    U_ = Environment(tensor_to_unitary(B), 'U\'')
+    
+    R = state_gate(rs)
+    #R = Environment(environment_to_unitary(r), 'R')
+    L = Environment(put_env_on_right_site(environment_from_unitary(cirq.unitary(R)).conj().T), 'L')
+    
+    W = Environment(WW, 'W')
+    
+    qbs = cirq.LineQubit.range(5)
+    C = cirq.Circuit.from_ops([R(*qbs[3:5]),
+                               U(*qbs[2:4]),
+                               U(*qbs[1:3]),
+                               W(*qbs[2:4]),
+                               L(*qbs[0:2]),
+                               cirq.inverse(U_)(*qbs[1:3]),
+                               cirq.inverse(U_)(*qbs[2:4]),
+                               cirq.CNOT(*qbs[3:5]), cirq.H(qbs[3])])
+    
+    s = cirq.Simulator(dtype=np.complex128)
+    return s.simulate(C).final_state
+
+def obj_H():
+    return -np.diag(np.eye(2**5)[0])
 
 if __name__=='__main__':
     A = iMPS().random(2, 2).left_canonicalise() # initial state should be an iMPS object
-    T = np.linspace(0, 1, 3) # timesteps
+
+    T = np.linspace(0, 1, 10) # timesteps
     dt = T[1]-T[0]
     # parametrise the initial state by minimizing the overlap with parametrised unitary. 
     # This is janky and would be way better the other way around. 
     # unless res.fun == -1, the initial state of the time evo is not what you want it to be. 
-    res = minimize(obj, np.random.randn(15), 
-                   (A[0], np.eye(4)), 
-                   method='Nelder-Mead',
-                   options={'disp':True})
+    #res = minimize(obj, np.random.randn(15), 
+    #               (A[0], np.eye(4)), 
+    #               method='Nelder-Mead',
+    #               options={'disp':True})
 
-    params = res.x
+    #params = res.x
+    params = np.random.randn(21)
 
     # Define the time evolution operator
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':1}).to_matrix()*dt)
@@ -270,14 +287,16 @@ if __name__=='__main__':
         # current mps tensor
         A_ = iMPS([unitary_to_tensor(cirq.unitary(gate(params)))]).left_canonicalise()
 
-        res = minimize(obj, params, (A_[0], WW), options={'disp':True})
+        #es, params = minimize(obj, params, (A_[0], WW), options={'disp':True})
+        es, params = double_rotosolve(obj_H(), obj_state, params, (A_[0], WW))
+        plt.plot(es)
+        plt.show()
+        raise Exception
 
         # store params, expectation values and loschmidt echo
         evs.append(A_.Es(ops))
         les.append(A_.overlap(A))
-        ps.append(res.x)
-
-        params = res.x
+        ps.append(params)
 
     np.save('params', np.array(ps))
 
