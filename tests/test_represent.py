@@ -1,7 +1,7 @@
 import unittest
 
 from numpy.random import randn
- from scipy.stats import unitary_group
+from scipy.stats import unitary_group
 from xmps.iMPS import iMPS, Map
 from qmps.tools import tensor_to_unitary, unitary_to_tensor, eye_like, environment_to_unitary, RepresentMPS
 from qmps.represent import FullStateTensor, FullEnvironment

@@ -13,6 +13,7 @@ Sx, Sy, Sz = spins(0.5)
 Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
 
 
+
 class TestTimeEvolve(unittest.TestCase):
     def setUp(self):
         N = 3
@@ -67,7 +68,10 @@ class TestTimeEvolve(unittest.TestCase):
             ax[0].plot(np.array(bloch_sphere_results), c='b')
             ax[1].plot(es)
             plt.show()
-
+            '''
+            Below is the cirq time evolution. Gate is made using scipy.expm(H) * dt which is put into a Tensor, and 
+            and this is the hamiltonian.
+            '''
 
 if __name__ == '__main__':
     unittest.main(verbosity=1)
