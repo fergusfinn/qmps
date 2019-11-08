@@ -103,7 +103,6 @@ def evo_state(params, old_U, H, dt, which='eig'):
 def evo_Hs(D=2):
     return np.diag(np.eye(2**6)[0]), np.diag(np.eye(2**4)[0])
 
-
 def swapper():
     return -np.kron(np.kron(np.eye(2), swap()), np.eye(8))
 
