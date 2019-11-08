@@ -1,0 +1,17 @@
+a W |0\rangle 
+b W |0\rangle 
+c W |0\rangle
+d W |0\rangle 
+
+b c W =\langle\hat{H}\rangle
+
+
+a b G $V$
+b c G $U$
+c d G $U$
+
+b c G $\hat{H}$
+c d G $U^\dagger$ width=15
+b c G $U^\dagger$ width=15
+a b G $V^\dagger$ width=15
+

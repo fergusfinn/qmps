@@ -3,8 +3,8 @@ Name: qmps
 Version: 0.1
 Summary: mps on quantum computers
 Home-page: https://github.com/fergusbarratt/quantum-matrix-product-states.git/
-Author: UNKNOWN
-Author-email: UNKNOWN
-License: UNKNOWN
+Author: Fergus Barratt
+Author-email: fergus.barratt@kcl.ac.uk
+License: GPL
 Description: UNKNOWN
 Platform: UNKNOWN

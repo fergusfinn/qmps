@@ -5,7 +5,7 @@ import numpy as np
 import numpy.random as ra
 from qmps.ground_state import Hamiltonian
 from qmps.represent import get_env_exact, State, FullStateTensor, FullEnvironment
-from qmps.represent import ShallowStateTensor, split_2s, ShallowCNOTStateTensor
+from qmps.represent import split_2s, ShallowCNOTStateTensor
 from qmps.represent import ShallowFullStateTensor
 import math
 import matplotlib.pyplot as plt
@@ -15,7 +15,7 @@ from scipy.optimize import minimize_scalar
 from tqdm import tqdm
 from xmps.tensor import partial_trace
 from scipy.linalg import expm
-mpl.style.use('pub_fast')
+#mpl.style.use('pub_fast')
 X, Y, Z = paulis(0.5)
 π = np.pi
 

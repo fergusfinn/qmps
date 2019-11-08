@@ -3,7 +3,7 @@ import numpy as np
 import cirq
 from xmps.iMPS import iMPS, Map
 from qmps.represent import get_env_exact, FullStateTensor, Environment
-from qmps.represent import StateGate
+from represent import StateGate
 from qmps.tools import unitary_to_tensor, environment_from_unitary
 from scipy.linalg import expm
 from qmps.ground_state import Hamiltonian

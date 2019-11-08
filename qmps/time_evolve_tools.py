@@ -7,7 +7,7 @@ from scipy.linalg import expm
 from qmps.ground_state import Hamiltonian
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-mpl.style.use('pub_fast')
+#mpl.style.use('pub_fast')
 from qmps.represent import ShallowFullStateTensor
 from qmps.tools import tensor_to_unitary, environment_to_unitary
 from qmps.rotosolve import gate as gate_
