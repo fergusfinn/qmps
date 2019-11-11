@@ -10,15 +10,17 @@ from qmps.represent import get_env_exact
 from qmps.tools import unitary_to_tensor, environment_from_unitary, tensor_to_unitary
 from qmps.time_evolve_tools import merge, put_env_on_left_site, put_env_on_right_site
 
-def param_unitary(params, inverse = False):
+def gate_to_operator(gate):
     """
-    Build a parameterized unitary Operator from a set of parameters with the full parameterisation of the 
-    SU(2) group.
+    Returns a Qiskit Operator Object given a cirq Gate object
     """
-    if inverse == True:
-        return Operator(U4(params).conj().T)
-    else:
-        return Operator(U4(params))
+    return Operator(cirq.unitary(gate))
+
+def param_unitary(params, gate, inverse = False):
+    """
+    Build a parameterized unitary Operator from a set of parameters with a parameterization determined by gate.
+    """
+    return gate_to_operator(gate(params))
 
 def partial_trace(ρ, n_spins, spins_keep):
     '''
@@ -38,12 +40,12 @@ def partial_trace(ρ, n_spins, spins_keep):
     output = reduced.reshape(output_dim, output_dim)
     return output
 
-def represent_full_cost_function(params, U):
+def represent_full_cost_function(params, U, gate):
     '''
     Cost function for variationally finding the environment of an iMPS with a quantum circuit. Requires full tomography of the reduced density matrices that are being evaluated.
     '''
     simulator = Aer.get_backend('statevector_simulator')
-    target_environment = Operator(U4(params))
+    target_environment = Operator(gate(params))
     
     circ_ρσ = QuantumCircuit(5)
     
@@ -60,14 +62,14 @@ def represent_full_cost_function(params, U):
     
     return np.linalg.norm(ρ_1-ρ_2)
 
-def represent_sampled_circuit(params, U, shots):
+def represent_sampled_circuit(params, U, shots, gate):
     '''
     Cost function for variationally finding the environment of an iMPS with a quantum circuit, without requiring the full reduced density matrix to be specified. Trace distance = Tr[|(ρ-σ)^2|] is used instead. 
     
     All estimated reduced density matrices are returned for the sake of debugging, see represent_sampled_cost_function() for the funciton to be used by optimizers. 
     '''
     simulator = Aer.get_backend('qasm_simulator')
-    target_environment = Operator(U4(params))
+    target_environment = Operator(gate(params))
 
     circ_ρσ = QuantumCircuit(5, 2)
     circ_ρρ = QuantumCircuit(4, 2)
@@ -151,11 +153,11 @@ def simulate_state(U, V):
     ψ = result.get_statevector(c)
     return ψ
 
-def energy_cost_fun(params, H):
+def energy_cost_fun(params, H, gate):
     """
     energy minimized when looking for the ground state of a 2-site hamiltonian H.
     """
-    U = U4(params)
+    U = gate(params)
     V = get_env_exact(U)
     
     ψ = simulate_state(Operator(U), Operator(V))
@@ -165,17 +167,17 @@ def energy_cost_fun(params, H):
     E = ψ.conj().T @ H @ ψ
     return E.real
 
-def time_evolve_sim_state(params, A, H: Operator):
+def time_evolve_sim_state(params, U, W):
     """
     Circuit which returns the overlap between 2 MPS states, defined by the unitaries U_ = U4(params) & U = tensor_to_unitary(A). The full wavefunction is returns for debugging purposes.
     """
     
     circ = QuantumCircuit(6,6)
     
-    U_ = U4(params)
-    A_ = unitary_to_tensor(U_)
-    U_ = Operator(U_)
-    U = Operator(tensor_to_unitary(A))
+    U_ = self.gate(params)
+    A = unitary_to_tensor(cirq.unitary(U))
+    A_ = unitary_to_tensor(cirq.unitary(U_))
+    
     _, r = Map(A, A_).right_fixed_point()
     
     R = Operator(put_env_on_left_site(r))
@@ -198,8 +200,8 @@ def time_evolve_sim_state(params, A, H: Operator):
     
     return ψ
 
-def time_evolve_cost_fun(params, A, W):
+def time_evolve_cost_fun(params, U, W):
     """
     objective funciton that takes the probabiltiy of the all-zeros state from the wavefunction returns by time_evolve_sim_state(). This value is multiplied by 2 for normalization purposes.
     """
-    return np.abs(time_evolve_sim_state(params, A, W)[0])*2
+    return np.abs(time_evolve_sim_state(params, U, Operator(W))[0])*2

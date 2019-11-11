@@ -1,67 +1,54 @@
-from rotosolve import double_rotosolve
+from qmps.rotosolve import double_rotosolve
+from qmps.ground_state import Hamiltonian
+from qmps.tools import unitary_to_tensor, environment_from_unitary, tensor_to_unitary, Optimizer
+from qmps.represent import get_env_exact, FullStateTensor, Environment, ShallowFullStateTensor, StateGate
+from qmps.time_evolve_tools import merge, put_env_on_left_site, get_env_off_left_site, put_env_on_right_site, get_env_off_right_site
 import numpy as np
 import cirq
+
 from xmps.iMPS import iMPS, Map
-from qmps.represent import get_env_exact, FullStateTensor, Environment
-from represent import StateGate
-from qmps.tools import unitary_to_tensor, environment_from_unitary
-from scipy.linalg import expm
-from qmps.ground_state import Hamiltonian
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-mpl.style.use('pub_fast')
-
-from qmps.represent import ShallowFullStateTensor
-from qmps.tools import tensor_to_unitary
-from qmps.rotosolve import gate as gate_
-from scipy.linalg import null_space, norm
-from tqdm import tqdm
 from xmps.spin import paulis
-from qmps.represent import ShallowFullStateTensor
-from qmps.tools import tensor_to_unitary
-from qmps.rotosolve import gate
-from scipy.linalg import null_space
+
+from represent import 
+from scipy.linalg import expm
+from scipy.linalg import null_space, norm
 from scipy.optimize import minimize
+
 I, X, Y, Z = np.eye(2), *paulis(0.5)
-def merge(A, B):
-        return np.tensordot(A, B, [2, 1]).transpose([0, 2, 1, 3]).reshape(2*A.shape[0], 2, 2)
 
-def put_env_on_left_site(q, ret_n=False):
-    # Take a matrix q (2x2) and create U such that 
-    # (right 0-|---|--0
-    #          | u |        =  q_{ij}
-    # (left) i-|---|--j 
-    q = q.T
-    a, b, c, d = q.reshape(-1)
-    n = np.sqrt(np.abs(a)**2+ np.abs(c)**2+ np.abs(b)**2+ np.abs(d)**2)
-    guess = np.array([[a, c.conj(), b, d.conj()], [c, -a.conj(), d, -b.conj()]])/n
-    orth = null_space(guess).conj().T
-    A = np.concatenate([guess, orth], axis=0)
-    A = cirq.unitary(cirq.SWAP)@A
-    if ret_n:
-        return A, n
-    else:
-        return A
-def get_env_off_left_site(A):
-    z = np.array([1, 0])
-    return np.tensordot(np.tensordot(A.reshape(2, 2, 2, 2), z, [3, 0]), z, [1, 0]).T
+def OverlapOptimizer(Optimizer):
+    def __init__(self, u, W, v = None, initial_guess=None, obj_fun = None, args = None, gate = None):
+        super().__init__(u, v, initial_guess, obj_fun, args, gate)
+        self.W = W # exponentiated Hamiltonian
+        
+    def objective_function(self, params):        
+        U_ = self.gate(params)
+        U = self.u
+        A = unitary_to_tensor(cirq.unitary(U))
+        A_ = unitary_to_tensor(cirq.unitary(U_))
+        
+        _, r = Map(A,A_).right_fixed_point()
+        
+        R = Environment(put_env_on_left_site(r), 'R')
+        L = Environment(put_env_on_right_site(r.conj().T), 'L')
+        
+        W = Environment(W, 'W')
 
-def put_env_on_right_site(q, ret_n=False):
-    q = q
-    a, b, c, d = q.reshape(-1)
-    n = np.sqrt(np.abs(a)**2+ np.abs(c)**2+ np.abs(b)**2+ np.abs(d)**2)
-    guess = np.array([[a, b, d.conj(), -c.conj()], [c, d, -b.conj(), a.conj()]])/n
-    orth = null_space(guess).conj().T
-    A = np.concatenate([guess, orth], axis=0)
-    #A = cirq.unitary(cirq.SWAP)@A
-    if ret_n:
-        return A, n
-    else:
-        return A
+        qbs = cirq.LineQubit.range(6)
+        C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+                                   U(*qbs[2:4]),
+                                   U(*qbs[1:3]),
+                                   W(*qbs[2:4]),
+                                   L(*qbs[0:2]),
+                                   R(*qbs[4:]),
+                                   cirq.inverse(U_)(*qbs[1:3]),
+                                   cirq.inverse(U_)(*qbs[2:4]),
+                                   cirq.CNOT(*qbs[3:5]), cirq.H(qbs[3])])
 
-def get_env_off_right_site(A):
-    z = np.array([1, 0])
-    return np.tensordot(np.tensordot(A.reshape(2, 2, 2, 2), z, [2, 0]), z, [0, 0])
+        s = cirq.Simulator(dtype=np.complex128)
+        return -np.abs(s.simulate(C).final_state[0])*2
+
+
 
 def run_tests(N):
     """run_tests: just a whole bunch of tests.
@@ -258,6 +245,9 @@ def obj_H():
     return -np.diag(np.eye(2**5)[0])
 
 if __name__=='__main__':
+    import matplotlib.pyplot as plt
+    import matplotlib as mpl
+
     A = iMPS().random(2, 2).left_canonicalise() # initial state should be an iMPS object
 
     T = np.linspace(0, 1, 10) # timesteps

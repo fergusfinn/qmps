@@ -153,7 +153,25 @@ def split_2s(x):
     """
     return [x[i:i+2] for i in range(len(x)) if not i%2]
 
+def get_env_exact(U):
+    """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
 
+    :param U:
+    """
+    η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
+    return environment_to_unitary(cholesky(r).conj().T)
+
+def get_env_exact_alternative(U):
+    AL, AR, C = iMPS([unitary_to_tensor(U)]).mixed()
+    return environment_to_unitary(C)
+
+def sqrtm(X):
+    Λ, V = eig(X)
+    return V@csqrt(diag(X))
+
+###################
+# Optimizers
+###################
 class OptimizerCircuit:
     def __init__(self, circuit=None, total_qubits=None, aux_qubits=None):
         self.circuit = circuit
@@ -163,7 +181,7 @@ class OptimizerCircuit:
 
 
 class Optimizer:
-    def __init__(self, u, v, initial_guess=None):
+    def __init__(self, u = None, v = None, initial_guess=None, obj_fun = None, args = None, gate = None):
         self.u = u
         self.v = v
 
@@ -180,7 +198,10 @@ class Optimizer:
             'bayesian': False,
         }
         self.is_verbose = self.settings['verbose']
+        self.obj_fun = obj_fun,
+        self.args = args
         self.circuit = OptimizerCircuit()
+        self.gate = U4 if gate is None else gate
 
     def change_settings(self, new_settings):
         return self.settings.update(new_settings)
@@ -198,14 +219,12 @@ class Optimizer:
             print(f'{self.iters}:{val}')
         self.iters += 1
 
-    # def get_circuit(self, params):
-    #     pass
-    #
-    # def calc_objective_function(self, circuit):
-    #     pass
 
     def objective_function(self, params):
-        pass
+        if self.obj_fun:
+            return self.obj_fun
+        else:
+            pass
 
     def optimize(self):
         options = {'maxiter': self.settings['maxiter'],
@@ -216,7 +235,8 @@ class Optimizer:
                   'method': self.settings['method'],
                   'tol': self.settings['tol'],
                   'options': options,
-                  'callback': self.callback_store_values if self.settings['store_values'] else None}
+                  'callback': self.callback_store_values if self.settings['store_values'] else None,
+                  'args': self.args}
 
         if self.settings['bayesian']:
             self.optimized_result = gp_minimize(self.objective_function, [(-np.pi, np.pi)]*(len(self.initial_guess)))
@@ -242,235 +262,8 @@ class Optimizer:
             plt.savefig(dir_path + '/' + file)
 
 
-class QAOAOptimizer(Optimizer):
-    def __init__(self, u, v, depth, initial_guess):
-        super().__init__(u, v)
-        self.bond_dim = int(2**(u.num_qubits()-1))
-        self.depth = depth
-        self.initial_guess = initial_guess if initial_guess is not None else np.random.rand(2 * depth)
 
-    def gate_from_params(self, params):
-        return ShallowStateTensor(self.bond_dim, params)
-
-
-class FullOptimizer(Optimizer):
-    def __init__(self, u, v, initial_guess):
-        super().__init__(u, v)
-        self.initial_guess = initial_guess if initial_guess is not None else np.random.rand(15)
-
-    def gate_from_params(self, params):
-        return FullStateTensor(U4(params))
-
-
-# Environment Optimizers ##################
-class EvoQAOAOptimizer(QAOAOptimizer):
-    def __init__(self, u, depth, initial_guess=None, v=None):
-        super().__init__(u, v, depth, initial_guess)
-
-    def update_state(self):
-        self.v = self.gate_from_params(self.optimized_result.x)
-
-
-class EvoFullOptimizer(FullOptimizer):
-    def __init__(self, u, initial_guess=None, v=None):
-        super().__init__(u, v, initial_guess)
-
-    def update_state(self):
-        self.v = self.gate_from_params(self.optimized_result.x)
-
-
-#########################################################
-
-# State Optimizers #############################
-
-class StateQAOAOptimizer(QAOAOptimizer):
-    def __init__(self, u, v, depth, hamiltonian, initial_guess=None):
-        super().__init__(u, v, depth, initial_guess)
-        self.hamiltonian = hamiltonian
-
-    def update_state(self):
-        self.u = self.gate_from_params(self.optimized_result.x)
-
-
-class StateFullOptimizer(FullOptimizer):
-    def __init__(self, u, v, hamiltonian, initial_guess=None):
-        super().__init__(u, v, initial_guess)
-        self.hamiltonian = hamiltonian
-
-    def update_state(self):
-        self.u = self.gate_from_params(self.optimized_result.x)
-
-
-############################################################
-
-# Vertical Optimizers #####################
-
-class VerticalEvoQAOASimulate(EvoQAOAOptimizer):
-
-    def objective_function(self, params):
-        environment = ShallowStateTensor(self.bond_dim, params)
-        state = State(self.u, environment)  # ignore these yellow errors
-
-        aux_qubits = int(environment.num_qubits() / 2)
-        self.circuit.aux_qubits = aux_qubits
-        self.circuit.total_qubits = state.num_qubits()
-
-        qubits = cirq.LineQubit.range(self.circuit.total_qubits)
-        self.circuit.qubits = qubits
-        self.circuit.circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                                      cirq.inverse(environment).on(
-                                                          *(qubits[:aux_qubits] + qubits[-aux_qubits:]))])
-
-        other_qubits = self.circuit.total_qubits - self.circuit.aux_qubits
-        target_strings = int(2 ** other_qubits)
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(self.circuit.circuit)
-
-        # prob_zeros = sum(np.absolute(results.final_simulator_state.state_vector[:target_strings]) ** 2)
-
-        density_matrix_qubits = self.circuit.qubits[:self.circuit.aux_qubits]
-        density_matrix = results.density_matrix_of(density_matrix_qubits)
-        prob_zeros = np.abs(density_matrix[0, 0])
-        return 1 - prob_zeros
-
-
-class VerticalEvoFullSimulate(EvoFullOptimizer):
-
-    def objective_function(self, params):
-        environment = FullStateTensor(U4(params))
-        state = State(self.u, environment)  # ignore these yellow errors
-
-        aux_qubits = int(environment.num_qubits() / 2)
-        self.circuit.aux_qubits = aux_qubits
-        self.circuit.total_qubits = state.num_qubits()
-
-        qubits = cirq.LineQubit.range(self.circuit.total_qubits)
-        self.circuit.qubits = qubits
-        self.circuit.circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                                      cirq.inverse(environment).on(
-                                                          *(qubits[:aux_qubits] + qubits[-aux_qubits:]))])
-
-        other_qubits = self.circuit.total_qubits - self.circuit.aux_qubits
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(self.circuit.circuit)
-
-        density_matrix_qubits = self.circuit.qubits[:self.circuit.aux_qubits]
-        density_matrix = results.density_matrix_of(density_matrix_qubits)
-        prob_zeros = np.abs(density_matrix[0, 0])
-
-        #prob_zeros = sum(np.absolute(results.final_simulator_state.state_vector[:target_strings]) ** 2)
-        return 1 - prob_zeros
-
-
-class VerticalEvoQAOASample(EvoQAOAOptimizer):
-    def __init__(self, u, depth, reps):
-        super().__init__(u, depth)
-        self.reps = reps
-
-    def objective_function(self, params):
-        environment = ShallowStateTensor(self.bond_dim, params)
-        state = State(self.u, environment)  # ignore these yellow errors
-
-        aux_qubits = int(environment.num_qubits() / 2)
-        self.circuit.aux_qubits = aux_qubits
-        self.circuit.total_qubits = state.num_qubits()
-
-        qubits = cirq.LineQubit.range(self.circuit.total_qubits)
-
-        self.circuit.circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                                      cirq.inverse(environment).on(
-                                                          *(qubits[:aux_qubits] + qubits[-aux_qubits:])),
-                                                      cirq.measure(*qubits[:aux_qubits])])
-
-        simulator = cirq.Simulator()
-        result = simulator.run(self.circuit.circuit, repetitions=self.reps)
-
-        key = list(result.measurements.keys())[0]
-        counter = result.histogram(key=key, fold_func=lambda e: sum(e))  # sum up the number of 1s in the measurements
-        mean = sum(counter.elements()) / self.reps
-        return mean
-
-
-class VerticalEvoFullSample(EvoFullOptimizer):
-    def __init__(self, u, reps):
-        super().__init__(u)
-        self.reps = reps
-
-    def objective_function(self, params):
-        environment = FullStateTensor(U4(params))
-        state = State(self.u, environment)  # ignore these yellow errors
-
-        aux_qubits = int(environment.num_qubits() / 2)
-        self.circuit.aux_qubits = aux_qubits
-        self.circuit.total_qubits = state.num_qubits()
-
-        qubits = cirq.LineQubit.range(self.circuit.total_qubits)
-
-        self.circuit.circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                                      cirq.inverse(environment).on(
-                                                          *(qubits[:aux_qubits] + qubits[-aux_qubits:])),
-                                                      cirq.measure(*qubits[:aux_qubits])])
-
-        simulator = cirq.Simulator()
-        result = simulator.run(self.circuit.circuit, repetitions=self.reps)
-
-        key = list(result.measurements.keys())[0]
-        counter = result.histogram(key=key, fold_func=lambda e: sum(e))  # sum up the number of 1s in the measurements
-        mean = sum(counter.elements()) / self.reps
-        return mean
-
-
-class VerticalStateQAOASimulate(StateQAOAOptimizer):
-    def objective_function(self, params):
-        target_u = ShallowStateTensor(self.bond_dim, params)
-        physical_qubits = self.hamiltonian.num_qubits()
-        original_state = State(self.u, self.v, n=physical_qubits)
-        target_state = State(target_u, self.v, n=physical_qubits)
-
-        aux_qubits = int(self.v.num_qubits() / 2)
-        qubits = cirq.LineQubit.range(original_state.num_qubits())
-        self.circuit.circuit = cirq.Circuit.from_ops([original_state(*qubits),
-                                                      self.hamiltonian(
-                                                          *qubits[aux_qubits:aux_qubits + physical_qubits]),
-                                                      cirq.inverse(target_state).on(*qubits)])
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(self.circuit.circuit)
-
-        final_state = results.final_simulator_state.state_vector[0]
-        score = np.abs(final_state) ** 2
-        return 1 - score
-
-
-class VerticalStateFullSimulate(StateFullOptimizer):
-    def objective_function(self, params):
-        target_u = FullStateTensor(U4(params))
-        physical_qubits = self.hamiltonian.num_qubits()
-        original_state = State(self.u, self.v, n=physical_qubits)
-        target_state = State(target_u, self.v, n=physical_qubits)
-
-        aux_qubits = int(self.v.num_qubits() / 2)
-        qubits = cirq.LineQubit.range(original_state.num_qubits())
-        self.circuit.circuit = cirq.Circuit.from_ops([original_state(*qubits),
-                                                      self.hamiltonian(
-                                                          *qubits[aux_qubits:aux_qubits + physical_qubits]),
-                                                      cirq.inverse(target_state).on(*qubits)])
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(self.circuit.circuit)
-
-        final_state = results.final_simulator_state.state_vector[0]
-        score = np.abs(final_state) ** 2
-        return 1 - score
-
-
-class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
-    # def __init__(self, guess, target, initial_values=None):
-    #     super().__init__(u=target, initial_guess=initial_values)
-    #     self.guess = guess
-
+class GuessInitialFullParameterOptimizer(Optimizer):    
     def objective_function(self, params):
         target_u = FullStateTensor(U4(params).conj())
         num_qubits = 2*self.u.num_qubits()
@@ -489,171 +282,6 @@ class GuessInitialFullParameterOptimizer(EvoFullOptimizer):
         final_state = results.final_simulator_state.state_vector[0]
         score = np.abs(final_state)**2
         return 1 - score
-
-
-
-
-#  Horizontal Optimizers #####################
-
-##############################################################
-
-
-class HorizontalEvoFullSimulate(EvoFullOptimizer):
-
-    def objective_function(self, params):
-        '''
-        Circuit 1:              Circuit 2:              Circuit 3:
-        Trace distance objective function:
-        |   |   |   |   |   |`  |   |   |   |   |   |   |   |   |   |   |
-        |   |-V-|   |   |   |`  |   |-V-|   |   |-V-|   |   |   |   |   |
-        |-U-|   |   |-V-|   |`  |-U-|   |   |-U-|   |   |   |-V-|   |-V-|
-        @-----------X       |`  @-----------X           |   @-------X
-        H                   |`  H                       |   H
-                         break1 |                    break2 |
-                               rho                         sigma
-        '''
-
-        environment = FullStateTensor(U4(params))
-        state = State(self.u, environment, 1)
-
-        state_qubits = state.num_qubits()
-        env_qubits = environment.num_qubits()
-
-        aux_qubits = int(env_qubits/2)
-        control_qubits = list(range(aux_qubits))
-
-        target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
-        target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
-        target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
-
-        total_qubits = (2 * state_qubits)
-        qubits = cirq.LineQubit.range(total_qubits)
-
-        cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
-        cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
-        cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
-
-        hadamards = [cirq.H(qubits[i]) for i in control_qubits]
-
-        circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
-                                          environment(*qubits[state_qubits: state_qubits+env_qubits])] +
-                                         cnots1 + hadamards)
-
-        circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
-                                          state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
-
-        circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
-                                         environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 + hadamards)
-
-        simulator = cirq.Simulator()
-        results1 = simulator.simulate(circuit1)
-        results2 = simulator.simulate(circuit2)
-        results3 = simulator.simulate(circuit3)
-
-        circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
-        circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
-
-        r_s = 1 - 2*results1.density_matrix_of(circuit1qubits)[-1, -1]
-        r_squared = 1 - 2*results2.density_matrix_of(circuit1qubits)[-1, -1]
-        s_squared = 1 - 2*results3.density_matrix_of(circuit3qubits)[-1, -1]
-
-        score = (r_squared + s_squared - 2 * r_s).real
-        return np.abs(score)
-
-
-class HorizontalEvoQAOASimulate(EvoQAOAOptimizer):
-    def objective_function(self, params):
-        environment = ShallowStateTensor(self.bond_dim, params)
-        state = State(self.u, environment, 1)
-
-        state_qubits = state.num_qubits()
-        env_qubits = environment.num_qubits()
-
-        total_qubits = state_qubits + env_qubits
-        self.circuit.total_qubits = state_qubits
-
-        qubits = cirq.LineQubit.range(total_qubits)
-        self.circuit.qubits = qubits
-
-        aux_qubits = environment.num_qubits() / 2
-        self.circuit.aux_qubits = aux_qubits
-
-        target_qubits = range(len(aux_qubits))
-        cnots = [cirq.CNOT(qubits[i], qubits[i + state_qubits]) for i in target_qubits]
-        hadamards = [cirq.H(qubits[i]) for i in target_qubits]
-
-        circuit = cirq.Circuit.from_ops([state.on(*qubits[:state_qubits]),
-                                         environment.on(*qubits[state_qubits:])] + cnots + hadamards)
-        self.circuit.circuit = circuit
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(circuit)
-
-        state_qubits = self.circuit.total_qubits
-        aux_qubits = self.circuit.aux_qubits
-        qubits = self.circuit.qubits
-
-        density_matrix_qubits = list(qubits[:aux_qubits]) + list(qubits[state_qubits:state_qubits + aux_qubits])
-        density_matrix = results.density_matrix_of(density_matrix_qubits)
-        prob_all_ones = density_matrix[-1, -1]
-        return np.abs(prob_all_ones)
-
-
-class RepresentMPS:
-    def __new__(cls, u, vertical='Horizontal', ansatz='Full', simulate='Simulate', **kwargs):
-        optimizer_choice = {
-            'QAOA': {
-                'Simulate': {
-                    'Vertical': None,
-                    'Horizontal': None
-                },
-                'Sample': {
-                    'Vertical': None,
-                    'Horizontal': None
-                }
-            },
-            'Full': {
-                'Simulate': {
-                    'Vertical': None,
-                    'Horizontal': HorizontalEvoFullSimulate
-                },
-                'Sample': {
-                    'Vertical': None,
-                    'Horizontal': None
-                }
-            }
-        }
-
-        return optimizer_choice[ansatz][simulate][vertical](u, **kwargs)
-
-
-class TimeEvolveOptimizer:
-    def __new__(cls, u, v, hamiltonian, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs):
-        optimizer_choice = {
-            'QAOA': {
-                'Simulate': {
-                    'Vertical': VerticalStateQAOASimulate,
-                    'Horizontal': None
-                },
-                'Sample': {
-                    'Vertical': None,
-                    'Horizontal': None
-                }
-            },
-            'Full': {
-                'Simulate': {
-                    'Vertical': VerticalStateFullSimulate,
-                    'Horizontal': None
-                },
-                'Sample': {
-                    'Vertical': None,
-                    'Horizontal': None
-                }
-            }
-        }
-        return optimizer_choice[ansatz][simulate][vertical](u, v, hamiltonian=hamiltonian, **kwargs)
-
-
 
 
 def sampled_bloch_vector_of(qubit, circuit, reps=1000000):

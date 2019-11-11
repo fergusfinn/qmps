@@ -1,28 +1,19 @@
 import cirq
 
 from xmps.iMPS import iMPS, TransferMatrix
-
-from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s
-from .tools import from_real_vector, to_real_vector, environment_to_unitary
-from .tools import unitary_to_tensor
 from xmps.spin import U4
+
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, from_real_vector, to_real_vector, environment_to_unitary, unitary_to_tensor
 from typing import List, Callable, Dict
-from .States import State, FullStateTensor, FullEnvironment
-from .tools import RepresentMPS
-from numpy import concatenate, allclose, tensordot, swapaxes, log2
+
+from numpy import concatenate, allclose, tensordot, swapaxes, log2, diag
 from numpy.linalg import eig
-from numpy import diag
 from numpy.random import randn
-
-from scipy.linalg import null_space, norm, cholesky
-from scipy.optimize import minimize
-from scipy.linalg import polar
-
 import numpy as np
 
-def sqrtm(X):
-    Λ, V = eig(X)
-    return V@csqrt(diag(X))
+from scipy.linalg import null_space, norm, cholesky, polar
+from scipy.optimize import minimize
+
 
 def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
     '''NOTE: just here till we can refactor optimize.py
@@ -60,18 +51,6 @@ def get_env(U, C0=randn(2, 2)+1j*randn(2, 2), sample=False, reps=100000):
 
     res = minimize(obj, to_real_vector(C0.reshape(-1)), method='Nelder-Mead')
     return environment_to_unitary(from_real_vector(res.x))
-
-def get_env_exact(U):
-    """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
-
-    :param U:
-    """
-    η, l, r = TransferMatrix(unitary_to_tensor(U)).eigs()
-    return environment_to_unitary(cholesky(r).conj().T)
-
-def get_env_exact_alternative(U):
-    AL, AR, C = iMPS([unitary_to_tensor(U)]).mixed()
-    return environment_to_unitary(C)
 
 
 #######################
@@ -134,8 +113,78 @@ def full_tomography_env_objective_function(U, V):
     RHS = sim.simulate(RHS).bloch_vector_of(qbs[0])
     return norm(LHS-RHS)
 
+def trace_distance_cost_function(params, U):
+            '''
+        Circuit 1:              Circuit 2:              Circuit 3:
+        Trace distance objective function:
+        |   |   |   |   |   |`  |   |   |   |   |   |   |   |   |   |   |
+        |   |-V-|   |   |   |`  |   |-V-|   |   |-V-|   |   |   |   |   |
+        |-U-|   |   |-V-|   |`  |-U-|   |   |-U-|   |   |   |-V-|   |-V-|
+        @-----------X       |`  @-----------X           |   @-------X
+        H                   |`  H                       |   H
+                         break1 |                    break2 |
+                               rho                         sigma
+        '''
+
+        environment = FullStateTensor(U4(params))
+        state = State(U, environment, 1)
+
+        state_qubits = state.num_qubits()
+        env_qubits = environment.num_qubits()
+
+        aux_qubits = int(env_qubits/2)
+        control_qubits = list(range(aux_qubits))
+
+        target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
+        target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
+
+        total_qubits = (2 * state_qubits)
+        qubits = cirq.LineQubit.range(total_qubits)
+
+        cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
+        cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
+        cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
+
+        hadamards = [cirq.H(qubits[i]) for i in control_qubits]
+
+        circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          environment(*qubits[state_qubits: state_qubits+env_qubits])] +
+                                         cnots1 + hadamards)
+
+        circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                          state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
+
+        circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
+                                         environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 + hadamards)
+
+        simulator = cirq.Simulator()
+        results1 = simulator.simulate(circuit1)
+        results2 = simulator.simulate(circuit2)
+        results3 = simulator.simulate(circuit3)
+
+        circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
+        circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
+
+        r_s = 1 - 2*results1.density_matrix_of(circuit1qubits)[-1, -1]
+        r_squared = 1 - 2*results2.density_matrix_of(circuit1qubits)[-1, -1]
+        s_squared = 1 - 2*results3.density_matrix_of(circuit3qubits)[-1, -1]
+
+        score = (r_squared + s_squared - 2 * r_s).real
+        return np.abs(score)
+
+
+    
+    
+class TraceDistanceOptimizer(Optimizer):
+    
+    def objective_function(self, params):
+        return trace_distance_cost_function(params, self.u)
+
+    
+    
 ############################################
-# Tensor, StateTensor, Environment, State  #
+# Cirq Gate Classes  #
 ############################################ 
 
 class Tensor(cirq.Gate):
@@ -321,152 +370,13 @@ class ShallowEnvironment(cirq.Gate):
     def _circuit_diagram_info_(self, args):
         return ['V'] * self.n_qubits
 
-class HorizontalSwapTest(cirq.Gate):
-    def __init__(self, u: cirq.Gate, v: cirq.Gate, bond_dim: int):
-        self.U = u
-        self.V = v
-        self.state = State(self.U, self.V, 1)
-        self.bond_dim = bond_dim
-
-    def num_qubits(self):
-        return self.state.num_qubits() + self.V.num_qubits()
-
-    def _decompose_(self, qubits):
-        state_qbs = self.state.num_qubits()
-        env_qbs = self.V.num_qubits()
-        target_qbs = range(int(log2(self.bond_dim)))
-
-        cnots = [cirq.CNOT(qubits[i], qubits[i+state_qbs]) for i in target_qbs]
-        hadamards = [cirq.H(qubits[i]) for i in target_qbs]
-        return [self.state._decompose_(qubits[:state_qbs]), self.V(*qubits[state_qbs:state_qbs+env_qbs])] +\
-            cnots + hadamards
 
 
-class VerticalSwapOptimizer(Optimizer):
-    def objective_function(self, v_params):
-        trial_environment = ShallowEnvironment(self.bond_dim, v_params)
-        state = State(self.u, trial_environment, 1)
-
-        qubits = cirq_qubits(state.num_qubits())
-        aux_qubits = int(self.v.num_qubits() / 2)
-        circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                         cirq.inverse(trial_environment).on(*(qubits[:aux_qubits] +
-                                                                              qubits[-aux_qubits:]))])
-        self.circuit = circuit
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(circuit)
-
-        target_qubits = self.get_target_qubits(aux_qubits, state.num_qubits())
-        prob_zeros = sum(np.absolute(results.final_simulator_state.state_vector[:int(target_qubits)])**2)
-        return 1-prob_zeros
-
-    @staticmethod
-    def get_target_qubits(aux_qubits, num_qubits):
-        other_qbs = num_qubits - aux_qubits
-        return 2**other_qbs - 1
-
-    def update_final_circuits(self):
-        v_params = self.optimized_result.x
-        self.v = ShallowEnvironment(self.bond_dim, v_params)
 
 
-class VerticalSampleSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, v_original: cirq.Gate, reps: int, **kwargs):
-        super().__init__(u_original, v_original, **kwargs)
-        self.reps = reps
-
-    def objective_function(self, params):
-        trial_environment = ShallowEnvironment(self.bond_dim, params)
-        state = State(self.u, trial_environment, 1)
-
-        qubits = cirq_qubits(state.num_qubits())
-        aux_qubs = int(self.v.num_qubits() / 2)
-        circuit = cirq.Circuit.from_ops([state.on(*qubits),
-                                         cirq.inverse(trial_environment).on(*(qubits[:aux_qubs] + qubits[-aux_qubs:])),
-                                         cirq.measure(*qubits[:aux_qubs])])
-
-        self.circuit = circuit
-        simulator = cirq.Simulator()
-        result = simulator.run(circuit, repetitions=self.reps)
-
-        key = list(result.measurements.keys())[0]
-        counter = result.histogram(key=key, fold_func=lambda e: sum(e))  # sum up the number of 1s in the measurements
-        mean = sum(counter.elements()) / self.reps
-        return mean
-
-    def update_final_circuits(self):
-        v_params = self.optimized_result.x
-        self.v = ShallowEnvironment(self.bond_dim, v_params)
 
 
-class HorizontalSampleSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, reps: int, v_original: cirq.Gate = None, **kwargs):
-        super().__init__(u_original, v_original, **kwargs)
-        self.reps = reps
-
-    def objective_function(self, params):
-        trial_environment = ShallowEnvironment(self.bond_dim, params)
-        state = State(self.u, trial_environment, 1)
-        horizontal_swap_gates = HorizontalSwapTest(self.u, trial_environment, self.bond_dim)
-
-        state_qubits = state.num_qubits()
-        env_qubits = trial_environment.num_qubits()
-        total_qubits = state_qubits+env_qubits
-        aux_qubs = int(env_qubits/2)
-        qubits = cirq_qubits(total_qubits)
-
-        circuit = cirq.Circuit.from_ops([horizontal_swap_gates(*qubits),
-                                         cirq.measure(qubits[:aux_qubs] + qubits[state_qubits:state_qubits+aux_qubs])])
-        self.circuit = circuit
-
-        simulator = cirq.Simulator()
-        results = simulator.run(circuit, repetitions=self.reps)
-        key = list(results.measurements.keys())[0]
-        counter = results.histogram(key=key)
-
-        measure_qubits = 2*aux_qubs
-        all_ones = int((2**measure_qubits)-1)
-        prob_all_ones = counter[all_ones]/self.reps
-        return prob_all_ones
-
-    def update_final_circuits(self):
-        v_params = self.optimized_result.x
-        self.v = ShallowEnvironment(self.bond_dim, v_params)
 
 
-class HorizontalSwapOptimizer(Optimizer):
-    def __init__(self, u_original: cirq.Gate, qaoa_depth: int, v_original: cirq.Gate = None, **kwargs):
-        super().__init__(u_original, v_original, qaoa_depth=qaoa_depth, **kwargs)
 
-    def objective_function(self, params):
-        trial_environment = ShallowEnvironment(self.bond_dim, params)
-        state = State(self.u, trial_environment, 1)
-        horizontal_swap_gates = HorizontalSwapTest(self.u, trial_environment, self.bond_dim)
 
-        # useful qubit numbers to build the circuit
-        state_qubits = state.num_qubits()
-        env_qubits = trial_environment.num_qubits()
-        total_qubits = state_qubits+env_qubits
-        aux_qubs = int(env_qubits/2)
-
-        qubits = cirq_qubits(total_qubits)
-        circuit = cirq.Circuit.from_ops([horizontal_swap_gates(*qubits)])
-        self.circuit = circuit
-
-        simulator = cirq.Simulator()
-        results = simulator.simulate(circuit)
-
-        # identify the reduced density matrix of the measured qubits and minimise the probability of
-        # measuring all |11...>
-        density_matrix_qubits = list(qubits[:aux_qubs]) + list(qubits[state_qubits:state_qubits+aux_qubs])
-        density_matrix = results.density_matrix_of(density_matrix_qubits)
-        prob_all_ones = density_matrix[-1, -1]
-        return np.abs(prob_all_ones)
-
-    def update_final_circuits(self):
-        v_params = self.optimized_result.x
-        self.v = ShallowEnvironment(self.bond_dim, v_params)
-
-def get_env_swap_test(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs):
-    return RepresentMPS(u, vertical='Vertical', ansatz='Full', simulate='Simulate', **kwargs)

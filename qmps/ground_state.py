@@ -4,17 +4,13 @@ from .represent import get_env_exact, full_tomography_env_objective_function
 from .represent import HorizontalSwapOptimizer, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
+from xmps.spin import swap, N_body_spins, U4, spins, SU
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
 from numpy import log2, trace
-from xmps.spin import swap
 import numpy as np
-
-from xmps.spin import N_body_spins, U4, spins, SU
-
 from scipy.optimize import approx_fprime
-
 from typing import Callable, List, Dict
 from functools import reduce
 from itertools import product

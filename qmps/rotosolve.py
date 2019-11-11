@@ -12,14 +12,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from functools import reduce
 from scipy.optimize import minimize_scalar
-from tqdm import tqdm
 from xmps.tensor import partial_trace
 from scipy.linalg import expm
-#mpl.style.use('pub_fast')
-X, Y, Z = paulis(0.5)
-π = np.pi
 
-dt = 0.1
 
 def gate(v, symbol='U'):
     #return ShallowCNOTStateTensor(2, v[:-1])
@@ -248,10 +243,3 @@ def double_rotosolve(H, state_function, initial_parameters, args=(), N_iters=5):
         #double_sinusoids(H, state_function, params)
         es.append(ϵ(params))
     return np.array(es), params
-
-H = Hamiltonian({'ZZ': -1, 'X': 1}).to_matrix()
-#x = np.random.randn(30)
-#es = double_rotosolve(op_H(H), op_state, np.random.randn(30), N_iters=50)
-#plt.plot(es)
-#plt.show()
-
