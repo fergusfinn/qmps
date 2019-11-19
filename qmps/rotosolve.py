@@ -3,10 +3,7 @@ from qmps.ground_state import Hamiltonian
 from xmps.spin import paulis, U4, swap
 import numpy as np
 import numpy.random as ra
-from qmps.ground_state import Hamiltonian
-from qmps.represent import get_env_exact, State, FullStateTensor, FullEnvironment
-from qmps.represent import split_2s, ShallowCNOTStateTensor
-from qmps.represent import ShallowFullStateTensor
+from qmps.represent import split_2s, ShallowCNOTStateTensor, ShallowFullStateTensor, State, FullStateTensor, FullEnvironment
 import math
 import matplotlib.pyplot as plt
 import matplotlib as mpl

@@ -1,25 +1,21 @@
 import numpy as np
 import cirq
+
 from xmps.iMPS import iMPS, Map
-from qmps.represent import get_env_exact, FullStateTensor, Environment
-from qmps.tools import unitary_to_tensor, environment_from_unitary
-from scipy.linalg import expm
+from xmps.spin import paulis
+from xmps.tensor import rotate_to_hermitian
+
+from qmps.represent import StateGate, FullStateTensor, Environment, ShallowFullStateTensor
+from qmps.tools import tensor_to_unitary, environment_to_unitary, unitary_to_tensor, environment_from_unitary, get_env_exact
 from qmps.ground_state import Hamiltonian
+from qmps.rotosolve import gate
+
+from scipy.linalg import null_space, norm,expm
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-#mpl.style.use('pub_fast')
-from qmps.represent import ShallowFullStateTensor
-from qmps.tools import tensor_to_unitary, environment_to_unitary
-from qmps.rotosolve import gate as gate_
-from scipy.linalg import null_space, norm
+
 from tqdm import tqdm_notebook
-from xmps.spin import paulis
-from qmps.represent import ShallowFullStateTensor
-from qmps.tools import tensor_to_unitary
-from qmps.rotosolve import gate
-from scipy.linalg import null_space
-from xmps.tensor import rotate_to_hermitian
-from qmps.represent import StateGate
 
 I, X, Y, Z = np.eye(2), *paulis(0.5)
 def merge(A, B):

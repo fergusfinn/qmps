@@ -114,7 +114,7 @@ def full_tomography_env_objective_function(U, V):
     return norm(LHS-RHS)
 
 def trace_distance_cost_function(params, U):
-            '''
+    '''
         Circuit 1:              Circuit 2:              Circuit 3:
         Trace distance objective function:
         |   |   |   |   |   |`  |   |   |   |   |   |   |   |   |   |   |
@@ -124,54 +124,55 @@ def trace_distance_cost_function(params, U):
         H                   |`  H                       |   H
                          break1 |                    break2 |
                                rho                         sigma
-        '''
+    '''
 
-        environment = FullStateTensor(U4(params))
-        state = State(U, environment, 1)
+    environment = FullStateTensor(U4(params))
+    state = State(U, environment, 1)
+    
+    state_qubits = state.num_qubits()
+    env_qubits = environment.num_qubits()
 
-        state_qubits = state.num_qubits()
-        env_qubits = environment.num_qubits()
+    aux_qubits = int(env_qubits/2)
+    control_qubits = list(range(aux_qubits))
 
-        aux_qubits = int(env_qubits/2)
-        control_qubits = list(range(aux_qubits))
+    target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
+    target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
+    target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
+    
+    total_qubits = (2 * state_qubits)
+    qubits = cirq.LineQubit.range(total_qubits)
+    
+    cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
+    cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
+    cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
 
-        target_qubits1 = list(range(state_qubits, state_qubits+aux_qubits))
-        target_qubits2 = list(range(state_qubits, state_qubits+aux_qubits))
-        target_qubits3 = list(range(env_qubits, env_qubits+aux_qubits))
+    hadamards = [cirq.H(qubits[i]) for i in control_qubits]
 
-        total_qubits = (2 * state_qubits)
-        qubits = cirq.LineQubit.range(total_qubits)
+    circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                      environment(*qubits[state_qubits: state_qubits+env_qubits])] +
+                                      cnots1 + hadamards)
 
-        cnots1 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits1)]
-        cnots2 = [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits2)]
-        cnots3= [cirq.CNOT(qubits[i], qubits[j]) for i, j in zip(control_qubits, target_qubits3)]
+    circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
+                                      state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
 
-        hadamards = [cirq.H(qubits[i]) for i in control_qubits]
+    circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
+                                      environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 +
+                                      hadamards)
 
-        circuit1 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
-                                          environment(*qubits[state_qubits: state_qubits+env_qubits])] +
-                                         cnots1 + hadamards)
+    simulator = cirq.Simulator() 
+    results1 = simulator.simulate(circuit1)
+    results2 = simulator.simulate(circuit2)
+    results3 = simulator.simulate(circuit3)
 
-        circuit2 = cirq.Circuit.from_ops([state(*qubits[:state_qubits]),
-                                          state(*qubits[state_qubits:total_qubits])] + cnots2 + hadamards)
+    circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
+    circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
 
-        circuit3 = cirq.Circuit.from_ops([environment(*qubits[:env_qubits]),
-                                         environment(*qubits[env_qubits: 2*env_qubits])] + cnots3 + hadamards)
+    r_s = 1 - 2*results1.density_matrix_of(circuit1qubits)[-1, -1]
+    r_squared = 1 - 2*results2.density_matrix_of(circuit1qubits)[-1, -1]
+    s_squared = 1 - 2*results3.density_matrix_of(circuit3qubits)[-1, -1]
 
-        simulator = cirq.Simulator()
-        results1 = simulator.simulate(circuit1)
-        results2 = simulator.simulate(circuit2)
-        results3 = simulator.simulate(circuit3)
-
-        circuit1qubits = [*qubits[:aux_qubits]] + [*qubits[state_qubits: state_qubits + aux_qubits]]
-        circuit3qubits = [*qubits[:aux_qubits]] + [*qubits[env_qubits: env_qubits + aux_qubits]]
-
-        r_s = 1 - 2*results1.density_matrix_of(circuit1qubits)[-1, -1]
-        r_squared = 1 - 2*results2.density_matrix_of(circuit1qubits)[-1, -1]
-        s_squared = 1 - 2*results3.density_matrix_of(circuit3qubits)[-1, -1]
-
-        score = (r_squared + s_squared - 2 * r_s).real
-        return np.abs(score)
+    score = (r_squared + s_squared - 2 * r_s).real
+    return np.abs(score)
 
 
     
@@ -297,11 +298,12 @@ class ShallowCNOTStateTensor(cirq.Gate):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [[cirq.Rz(β)(qubit) for qubit in [qubits[1]]] + \
-                [cirq.Rx(γ)(qubit) for qubit in [qubits[0]]] + \
+        return [[cirq.Rz(β)(qubit) for qubit in qubits] + \
+                [cirq.Rx(γ)(qubit) for qubit in qubits] + \
                 [cirq.H(qubits[0])]+\
-                list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) +\
-                [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
+             list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
+                #+\
+#                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
                 for β, γ in split_2s(self.βγs)]
 
     def _circuit_diagram_info_(self, args):

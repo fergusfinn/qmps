@@ -5,10 +5,10 @@ from numpy.random import rand, randint, randn
 from numpy.linalg import svd, qr
 import numpy as np
 from xmps.spin import U4
-from scipy.linalg import null_space, norm, svd
+from xmps.iMPS import TransferMatrix, iMPS
+from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
 from skopt import gp_minimize
-from .States import FullStateTensor, ShallowStateTensor, State
 import matplotlib.pyplot as plt
 import os
 from typing import Callable, List, Dict
@@ -181,7 +181,7 @@ class OptimizerCircuit:
 
 
 class Optimizer:
-    def __init__(self, u = None, v = None, initial_guess=None, obj_fun = None, args = None, gate = None):
+    def __init__(self, u = None, v = None, initial_guess=None, obj_fun = None, args = None):
         self.u = u
         self.v = v
 
@@ -198,10 +198,10 @@ class Optimizer:
             'bayesian': False,
         }
         self.is_verbose = self.settings['verbose']
-        self.obj_fun = obj_fun,
+        self.obj_fun = obj_fun
         self.args = args
         self.circuit = OptimizerCircuit()
-        self.gate = U4 if gate is None else gate
+        # self.gate = U4 if gate is None else gate
 
     def change_settings(self, new_settings):
         return self.settings.update(new_settings)
@@ -215,14 +215,14 @@ class Optimizer:
     def callback_store_values(self, xk):
         val = self.objective_function(xk)
         self.obj_fun_values.append(val)
-        if self.is_verbose:
+        if self.settings['verbose']:
             print(f'{self.iters}:{val}')
         self.iters += 1
 
 
     def objective_function(self, params):
-        if self.obj_fun:
-            return self.obj_fun
+        if self.obj_fun is not None:
+            return self.obj_fun(params, *self.args)
         else:
             pass
 
@@ -235,21 +235,21 @@ class Optimizer:
                   'method': self.settings['method'],
                   'tol': self.settings['tol'],
                   'options': options,
-                  'callback': self.callback_store_values if self.settings['store_values'] else None,
-                  'args': self.args}
+                  'callback': self.callback_store_values if self.settings['store_values'] else None}
 
         if self.settings['bayesian']:
             self.optimized_result = gp_minimize(self.objective_function, [(-np.pi, np.pi)]*(len(self.initial_guess)))
         else:
             self.optimized_result = minimize(**kwargs)
-        # maybe implement genetic evolution algorithm or particle swarm?
+
         self.update_state()
         if self.is_verbose and not self.settings['bayesian']:
             print(f'Reason for termination is {self.optimized_result.message} ' +
                   f'\nObjective Function Value is {self.optimized_result.fun}')
 
     def plot_convergence(self, file, exact_value=None):
-        dir_path = os.path.dirname(os.path.realpath(__file__))
+        import os
+        dir_path = os.path.abspath('')
         plt.figure()
         x = range(self.iters)
         plt.plot(x, self.obj_fun_values)

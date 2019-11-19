@@ -6,8 +6,7 @@ import numpy as np
 from xmps.iMPS import iMPS, Map 
 from xmps.spin import U4
 
-from qmps.represent import get_env_exact
-from qmps.tools import unitary_to_tensor, environment_from_unitary, tensor_to_unitary
+from qmps.tools import unitary_to_tensor, environment_from_unitary, tensor_to_unitary, get_env_exact, get_env_exact_alternative
 from qmps.time_evolve_tools import merge, put_env_on_left_site, put_env_on_right_site
 
 def gate_to_operator(gate):
@@ -158,12 +157,14 @@ def energy_cost_fun(params, H, gate):
     energy minimized when looking for the ground state of a 2-site hamiltonian H.
     """
     U = gate(params)
-    V = get_env_exact(U)
+    try:
+        V = get_env_exact(U)
+    except:
+        V = get_env_exact_alternative(U)
     
     ψ = simulate_state(Operator(U), Operator(V))
     
     H = np.kron(np.kron(np.eye(2), H), np.eye(2))
-    
     E = ψ.conj().T @ H @ ψ
     return E.real
 

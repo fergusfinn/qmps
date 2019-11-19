@@ -1,14 +1,10 @@
 import cirq
-from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .represent import get_env_exact, full_tomography_env_objective_function
-from .represent import HorizontalSwapOptimizer, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
-from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
-from .tools import split_2s
+from .represent import State, FullStateTensor, FullEnvironment, get_env, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment, full_tomography_env_objective_function
+from .tools import split_2s, get_env_exact, environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from xmps.spin import swap, N_body_spins, U4, spins, SU
-from numpy import array, real, kron, eye, trace, zeros
+from numpy import array, real, kron, eye, trace, zeros, log2
 from numpy.linalg import qr
 from numpy.random import randn
-from numpy import log2, trace
 import numpy as np
 from scipy.optimize import approx_fprime
 from typing import Callable, List, Dict
@@ -154,7 +150,7 @@ class SparseFullEnergyOptimizer(Optimizer):
                  H, 
                  D=2, 
                  depth=2,
-                 env_optimizer=HorizontalSwapOptimizer,
+                 env_optimizer=None,
                  env_depth=4,
                  state_tensor=ShallowCNOTStateTensor,
                  initial_guess = None, 
@@ -279,7 +275,7 @@ class NoisySparseFullEnergyOptimizer(Optimizer):
                  depolarizing_prob,
                  D=2, 
                  depth=2,
-                 env_optimizer=HorizontalSwapOptimizer,
+                 env_optimizer=None,
                  env_depth=4,
                  state_tensor=ShallowCNOTStateTensor,
                  initial_guess = None, 
