@@ -1,0 +1,10 @@
+a W 
+b W 
+
+a b G \rotatebox{90}{$U(\theta ,\phi)$} height=40
+=
+a G $Z(\phi - \frac{\pi}{2})$ width=45
+b X
++a b
+b X
+b G $X(2\theta)$ a width=35
