@@ -1,0 +1,51 @@
+Initialization:
+t.H(14)
+t.H(17)
+t.H(11)
+t.H(13)
+t.H(7)
+t.H(10)
+t.H(22)
+t.H(23)
+t.H(1)
+t.H(2)
+
+Batch 1:
+t.CNOT(14,21)
+t.CNOT(7,0)
+t.CNOT(10,3)
+t.CNOT(17,24)
+t.CNOT(11,12)
+t.CNOT(22,18)
+t.CNOT(23,20)
+t.CNOT(13,16)
+t.CNOT(1,4)
+t.CNOT(2,6)
+
+Batch 2:
+
+t.CNOT(21,18)
+t.CNOT(24,20)
+t.CNOT(23,19)
+t.CNOT(14,15)
+t.CNOT(7,8)
+t.CNOT(17,16)
+t.CNOT(13,12)
+t.CNOT(10,9)
+t.CNOT(3,6)
+t.CNOT(2,5)
+t.CNOT(0,4)
+
+
+Batch 3:
+t.CNOT(22,19)
+t.CNOT(20,16)
+t.CNOT(13,9)
+t.CNOT(1,5)
+t.CNOT(4,8)
+t.CNOT(11,15)
+
+Batch 4:
+t.CNOT(18,15)
+t.CNOT(6,9)
+t.CNOT(11,8)
