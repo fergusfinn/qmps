@@ -1,0 +1,138 @@
+from qmps.represent import FullStateTensor, FullEnvironment, get_env_exact, Environment, ShallowFullStateTensor
+from qmps.tools import unitary_to_tensor, environment_from_unitary, tensor_to_unitary
+from xmps.spin import U4
+from xmps.iMPS import Map, iMPS
+from qmps.time_evolve_tools import merge, put_env_on_left_site, put_env_on_right_site
+
+def two_site_cost_fun(params, U1, U2,  W):
+    
+    """
+    Simulate a quantum state of the form:
+    
+    |    |    |    |    |----|    |
+    |    |    |    |-U1-|    |    |
+    |    |    |-U2-|    |    |    |
+    |    |-U1-|    |    |    |    |
+    |-L--|    |----W----|    |--R-|
+    |    |U1'-|    |    |    |    |
+    |    |    |U2'-|    |    |    |
+    |    |    |    |U1'-|    |    |
+    |    |    |    |    |----|    |
+    
+    and return the overlap of these wo states to find parameterisations of U1' and U2' that minimize this overlap.
+    
+    Inputs: 
+    1) params: 2 * N where N is the number of parameters used to specify the unitary U1(2)
+    2) U1/U2: A parameterized unitary that decomposes to native cirq gates
+    3) W: exponentiated hamiltonian 
+    
+    Ouputs:
+    1) Final state |ψ>
+    """
+    
+    A1 = unitary_to_tensor(cirq.unitary(U1))
+    A2 = unitary_to_tensor(cirq.unitay(U2))
+    
+    U1_ = ShallowFullStateTensor(params[:15])
+    U2_ = ShallowFullStateTensor(params[15:])
+    
+    A1_ = unitary_to_tensor(cirq.unitary(U1_))
+    A2_ = unitary_to_tensor(cirq.unitary(U2_))
+    
+    A12 = merge(A1, A2)
+    A12_ = merge(A1_, A2_)
+    
+    _, r = Map(A12,A12_).right_fixed_point()
+    
+    R = Environment(put_env_on_left_site(r), 'θR')
+    left = put_env_on_right_site(r.conj().T)
+    L = Environment(left, 'θL')
+
+    q = cirq.LineQubit.range(7)
+
+    circuit = cirq.Circuit.from_ops([
+        cirq.H(q[4]),
+        cirq.CNOT(q[4], q[5]),
+        U1(*q[3:5]),
+        U2(*q[2:4]),
+        U1(*q[1:3]),
+        L(*q[0:2]),
+        R(*q[5:7]),
+        W(*q[2:5]),
+        cirq.inverse(U1_)(*q[1:3]),
+        cirq.inverse(U2_)(*q[2:4]),
+        cirq.inverse(U1_)(*q[3:5]),
+        cirq.CNOT(q[4], q[5]),
+        cirq.H(q[4])
+        ])
+
+    sim = cirq.Simulator()
+    X =sim.simulate(circuit).final_state
+    return X 
+
+def scar_obj_fun(params, A, W):
+    return np.abs(sim_overlap(params, A, W)[0])*2    
+
+
+params = np.random.randn(30)
+
+class Neel1(cirq.Gate):
+    """
+    Gate for the very first step of the many body scar algorithm:
+    |-𝕀-|-X-|
+    """
+    
+    def num_qubits(self):
+        return 2
+    
+    def _decompose_(self, qubits):
+        return [cirq.I(qubits[0]), cirq.X(qubits[1])]
+    
+    def _circuit_diagram_info_(self, args):
+        return 'U1'
+    
+class Neel2(cirq.Gate):
+    """
+    Gate for the very first step of the many body scar algorithm:
+    |-𝕀-|-𝕀-|
+    """
+
+    def num_qubits(self):
+        return 2
+    
+    def _decompose_(self, qubits):
+        return [cirq.I(qubits[0]), cirq.I(qubits[1])]
+    
+    def _circuit_diagram_info_(self, args):
+        return 'U2'
+
+U1 = Neel1()
+U2 = Neel2()
+
+params = np.random.randn(30)
+
+
+
+
+
+
+-----------------------------------------
+
+"""
+What needs to be done:
+
+1) make a multi-site state out of 2 separately parameterized unitary matrices -Done
+
+2) figure out a ay to extract an environment from this state  -Done
+        - tensor to unitart,
+        - merge,
+        - get_left/right env
+        
+3) Calculate environment    
+    
+4) get entanglement entropy:
+        - reduced density matrix of the environment 
+
+5) Poincare map (have no idea what this is)
+
+"""

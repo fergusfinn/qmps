@@ -8,14 +8,8 @@ from .tools import split_2s
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
-from numpy import log2, trace
-from xmps.spin import swap
 import numpy as np
-
-from xmps.spin import N_body_spins, U4, spins, SU
-
 from scipy.optimize import approx_fprime
-
 from typing import Callable, List, Dict
 from functools import reduce
 from itertools import product
@@ -159,7 +153,7 @@ class SparseFullEnergyOptimizer(Optimizer):
                  H, 
                  D=2, 
                  depth=2,
-                 env_optimizer=HorizontalSwapOptimizer,
+                 env_optimizer=None,
                  env_depth=4,
                  state_tensor=ShallowCNOTStateTensor,
                  initial_guess = None, 
@@ -288,7 +282,7 @@ class NoisySparseFullEnergyOptimizer(Optimizer):
                  depolarizing_prob,
                  D=2, 
                  depth=2,
-                 env_optimizer=HorizontalSwapOptimizer,
+                 env_optimizer=None,
                  env_depth=4,
                  state_tensor=ShallowCNOTStateTensor,
                  initial_guess = None, 
