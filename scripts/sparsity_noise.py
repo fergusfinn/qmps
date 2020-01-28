@@ -1,5 +1,5 @@
 """How does sparsity affect optimization performance"""
-from qmps.ground_state import SparseFullEnergyOptimizer, NoisySparseFullEnergyOptimizer
+from qmps.ground_state import NoisySparseFullEnergyOptimizer, SparseFullEnergyOptimizer
 from scipy import integrate
 import numpy as np
 import numpy.random as ra
@@ -39,12 +39,12 @@ for i, p in enumerate(ps):
                        [0,g/2,g/2,J]] )
 
 
-        opt = NoisySparseFullEnergyOptimizer(H, 0.01,  D, p, initial_guess=initial_guess)
+        opt = NoisySparseFullEnergyOptimizer(H, 0.001, D, p, initial_guess=initial_guess)
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
         #sets['maxiter'] = 4
-        sets['tol'] = 1e-6
+        sets['tol'] = 1e-4
         opt.change_settings(sets)
         opt.optimize()
         print(g)

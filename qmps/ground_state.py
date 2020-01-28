@@ -2,6 +2,7 @@ import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
 from .represent import get_env_exact, full_tomography_env_objective_function
 from .represent import HorizontalSwapOptimizer, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
+from .represent import ShallowQAOAStateTensor
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
 from .tools import split_2s
 from numpy import array, real, kron, eye, trace, zeros
@@ -179,8 +180,12 @@ class SparseFullEnergyOptimizer(Optimizer):
     def objective_function(self, u_params):
         U = self.state_tensor(self.D, u_params)
         #V = self.env_optimizer(U, self.env_depth).get_env().v
-        V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
-
+        try:
+            V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
+        except np.linalg.LinAlgError:
+            print('LinAlgError')
+            return self.f
+            
         qbs = cirq.LineQubit.range(2+V.num_qubits())
         sim = cirq.Simulator()
 
@@ -189,8 +194,8 @@ class SparseFullEnergyOptimizer(Optimizer):
 
         ψ = sim.simulate(C).final_state
 
-        f =  real(ψ.conj().T@H@ψ)
-        return f
+        self.f =  real(ψ.conj().T@H@ψ)
+        return self.f
 
 class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
