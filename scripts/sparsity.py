@@ -10,14 +10,14 @@ mpl.style.use('pub_fast')
 
 D = 2
 
-gs = np.linspace(0.1, 2, 10)
+gs = np.linspace(0.1, 2, 5)
 exact_es = []
 qmps_es = []
 
 import itertools
 
 marker = itertools.cycle(['x', '.', ',', '+', '*'])
-ps = range(1, 10, 2)
+ps = range(1, 4, 1)
 for i, p in enumerate(ps):
     if i==0:
         first_initial_guess = ra.randn(2*p)
@@ -39,15 +39,14 @@ for i, p in enumerate(ps):
                        [0,g/2,g/2,J]] )
 
 
-        opt = NoisySparseFullEnergyOptimizer(H, 0.01,  D, p, initial_guess=initial_guess)
+        opt = NoisySparseFullEnergyOptimizer(H, 1e-3,  D, p, initial_guess=initial_guess)
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
-        #sets['maxiter'] = 4
+        sets['maxiter'] = 500 
         sets['tol'] = 1e-6
         opt.change_settings(sets)
         opt.optimize()
-        print(g)
 
         initial_guess = opt.optimized_result.x
 

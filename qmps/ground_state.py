@@ -1,10 +1,10 @@
 import cirq
 from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .represent import get_env_exact, full_tomography_env_objective_function
-from .represent import HorizontalSwapOptimizer, ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
+from .represent import full_tomography_env_objective_function
+from .represent import ShallowCNOTStateTensor, ShallowCNOTStateTensor, ShallowEnvironment
 from .represent import ShallowQAOAStateTensor
 from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
-from .tools import split_2s
+from .tools import get_env_exact, split_2s
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
@@ -13,6 +13,7 @@ from scipy.optimize import approx_fprime
 from typing import Callable, List, Dict
 from functools import reduce
 from itertools import product
+from xmps.spin import spins
 
 Sx, Sy, Sz = spins(0.5)
 
