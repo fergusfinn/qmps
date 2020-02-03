@@ -153,6 +153,11 @@ def split_2s(x):
     """
     return [x[i:i+2] for i in range(len(x)) if not i%2]
 
+def split_3s(x):
+    """split_3s: take a list: [β, γ, β, γ, ...], return [[β, γ, β], [γ, β, γ], ...]
+    """
+    return [x[i:i+3] for i in range(len(x)) if not i%3]
+
 def get_env_exact(U):
     """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
 

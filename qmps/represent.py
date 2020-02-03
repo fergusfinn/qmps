@@ -3,7 +3,7 @@ import cirq
 from xmps.iMPS import iMPS, TransferMatrix
 from xmps.spin import U4
 
-from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, from_real_vector, to_real_vector, environment_to_unitary, unitary_to_tensor
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, split_3s, from_real_vector, to_real_vector, environment_to_unitary, unitary_to_tensor
 from typing import List, Callable, Dict
 
 from numpy import concatenate, allclose, tensordot, swapaxes, log2, diag
@@ -174,9 +174,6 @@ def trace_distance_cost_function(params, U):
     score = (r_squared + s_squared - 2 * r_s).real
     return np.abs(score)
 
-
-    
-    
 class TraceDistanceOptimizer(Optimizer):
     
     def objective_function(self, params):
@@ -305,6 +302,28 @@ class ShallowCNOTStateTensor(cirq.Gate):
                 #+\
 #                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
                 for β, γ in split_2s(self.βγs)]
+
+    def _circuit_diagram_info_(self, args):
+        return ['U'] * self.n_qubits
+
+class ShallowCNOTStateTensor3(cirq.Gate):
+    def __init__(self, bond_dim, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _decompose_(self, qubits):
+        return [[cirq.Rz(β)(qubit) for qubit in qubits] + \
+                [cirq.Rx(γ)(qubit) for qubit in qubits] + \
+                [cirq.Rz(ω)(qubit) for qubit in qubits] + \
+                [cirq.H(qubits[0])]+\
+             list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
+                #+\
+#                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
+                for β, γ, ω in split_3s(self.βγs)]
 
     def _circuit_diagram_info_(self, args):
         return ['U'] * self.n_qubits
