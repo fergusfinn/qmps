@@ -19,6 +19,8 @@ from qmps.tools import tensor_to_unitary, environment_to_unitary
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
+import cycler
 mpl.style.use('pub_fast')
 
 I, X, Y, Z = np.eye(2), *paulis(0.5)
@@ -254,8 +256,8 @@ def loschmidt(t, g0, g1):
 
 if __name__=='__main__':
     g0, g1 = 1.5, 0.2
-    ps = range(10, 2, -2)
-    T = np.linspace(0, 6, 150)
+    ps = range(8, 2, -2)
+    T = np.linspace(0, 3, 150)
     dt = T[1]-T[0]
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()*2*dt)
     ops = paulis(0.5)
@@ -277,7 +279,7 @@ if __name__=='__main__':
                        options={'disp':True}) # get the initial state
         params = res.x
         
-        ps = [params]
+        paramss = [params]
         evs = []
         les = []
         errs = [res.fun]
@@ -290,8 +292,35 @@ if __name__=='__main__':
 
             params = res.x
             errs.append(res.fun)
-            ps.append(params)
+            paramss.append(params)
 
         lles.append(les)
         eevs.append(evs)
         eers.append(errs)
+
+    n = 4
+    color = (plt.cm.viridis(np.linspace(0, 1, n)))
+    mpl.rcParams['axes.prop_cycle'] = cycler.cycler('color', color)
+    #mpl.style.use("pub_fast")
+    #markers = [':', '--', '-.', ':']*2
+    markers = ['-']*8
+    fig, ax = plt.subplots(1, 1, sharex=True)
+    #ax[0].plot(T, eevs)
+
+    for q, i in enumerate(ps):
+        print(ps, i)
+        print(np.max(list(ps))-i)
+        j = int((np.max(list(ps))-i)/2)
+        ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[q])
+        ax.set_ylabel('Loschmidt Echo')
+    #j=8
+    #ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[j])
+    ax.plot(T, Q, c='black', label='exact')
+
+    ax.legend(loc=1)
+
+    plt.ylim([0, 1])
+    #ax[0].set_ylabel('Expectation Values')
+    ax.set_xlabel('time (t/J)')
+    plt.savefig('loschmidts.pdf', bbox_inches='tight')
+    plt.show()

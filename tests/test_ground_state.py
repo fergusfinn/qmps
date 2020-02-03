@@ -191,6 +191,7 @@ class TestGroundState(unittest.TestCase):
             plt.plot(gs, qmps_es)
             plt.show()
 
+    @unittest.skip('x')
     def test_SparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
             gs = np.linspace(0.1, 2, 10)
@@ -236,6 +237,27 @@ class TestGroundState(unittest.TestCase):
             #plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
+
+    def test_Rotosolve(self):
+        J, g = -1, 0.5 
+        f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
+        E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
+        H =  np.array([[J,g/2,g/2,0], 
+                       [g/2,-J,0,g/2], 
+                       [g/2,0,-J,g/2], 
+                       [0,g/2,g/2,J]] )
+        opt = SparseFullEnergyOptimizer(H, optimize_environment=True)
+        sets = opt.settings
+        sets['store_values'] = True
+        sets['method'] = 'Rotosolve'
+        sets['verbose'] = True
+        sets['maxiter'] = 5
+        sets['tol'] = 1e-6
+        opt.change_settings(sets)
+        opt.optimize()
+        res = opt.optimize()
+
+        print(E0_exact, res.fun)
 
 if __name__=='__main__':
     unittest.main(verbosity=2)
