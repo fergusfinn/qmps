@@ -26,7 +26,7 @@ mpl.style.use('pub_fast')
 I, X, Y, Z = np.eye(2), *paulis(0.5)
 
 def merge(A, B):
-    # -A- -B-  ->  -A-B-
+        # -A- -B-  ->  -A-B-
     #  |   |        ||
     return np.tensordot(A, B, [2, 1]).transpose([0, 2, 1, 3]).reshape(2*A.shape[0], 2, 2)
 
@@ -328,7 +328,6 @@ def f(z, g0, g1):
         return -1/(2*np.pi)*np.log(np.cos(phi(k, g0, g1))**2 + np.sin(phi(k, g0, g1))**2 * np.exp(-2*z*epsilon(k, g1)))
 
     return quad(integrand, 0, np.pi)[0]
-
 
 def loschmidt(t, g0, g1):
     return (f(t*1j, g0, g1)+f(-1j*t, g0, g1))
