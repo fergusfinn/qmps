@@ -20,14 +20,12 @@ ps = range(1, 6, 1)
 fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 for i, p in enumerate(ps):
     if i==0:
-        first_initial_guess = ra.randn(2*p)
-    initial_guess = first_initial_guess
+        initial_guess = ra.randn(2*p)
 
     es = []
     es_ = []
     if initial_guess is not None and len(initial_guess)!=2*p:
         initial_guess = np.concatenate([initial_guess, np.zeros(2*p-len(initial_guess))])
-    print(len(initial_guess))
     for j, g in tqdm(enumerate(gs)):
         J, g = -1, g
         f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
@@ -43,15 +41,12 @@ for i, p in enumerate(ps):
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
-        sets['maxiter'] = 1000
+        sets['maxiter'] = 500
         sets['tol'] = 1e-4
         opt.change_settings(sets)
         opt.optimize()
 
         initial_guess = opt.optimized_result.x
-
-        if j==0:
-            first_initial_guess = initial_guess
 
         es.append(opt.obj_fun_values[-1])
 
@@ -62,7 +57,6 @@ for i, p in enumerate(ps):
     exact_es.append(es_)
     np.save(f'{p}', es)
 
-#plt.plot(np.array(qmps_es).T)
 ax.set_xlabel('$\\lambda$')
 ax.set_ylabel('$E_0$')
 ax.plot(gs, np.array(exact_es)[-1], linestyle='--', label='analytical result')
@@ -84,4 +78,4 @@ ax.set_ylabel('$\epsilon$')
 
 plt.savefig('total_error_vsp.pdf')
 #plt.title('Deviation from exact $E_0$ curve vs. p', loc='right')
-#plt.show()
+plt.show()
