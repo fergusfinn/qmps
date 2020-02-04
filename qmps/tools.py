@@ -1,18 +1,25 @@
+from scipy.optimize import minimize_scalar
+
 from numpy import eye, concatenate, allclose, swapaxes, tensordot
 from numpy import array, pi as π, arcsin, sqrt, real, imag, split
 from numpy import zeros, block, diag, log2
 from numpy.random import rand, randint, randn
 from numpy.linalg import svd, qr
 import numpy as np
+
 from xmps.spin import U4
 from xmps.iMPS import TransferMatrix, iMPS
+
 from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
+
 from skopt import gp_minimize
+
 import matplotlib.pyplot as plt
 import os
 from typing import Callable, List, Dict
 import cirq
+from tqdm import tqdm
 
 
 def get_circuit(state, decomp=None):
@@ -224,7 +231,6 @@ class Optimizer:
             print(f'{self.iters}:{val}')
         self.iters += 1
 
-
     def objective_function(self, params):
         if self.obj_fun is not None:
             return self.obj_fun(params, *self.args)
@@ -244,6 +250,8 @@ class Optimizer:
 
         if self.settings['bayesian']:
             self.optimized_result = gp_minimize(self.objective_function, [(-np.pi, np.pi)]*(len(self.initial_guess)))
+        elif self.settings['method'] == 'Rotosolve':
+            self.optimized_result = double_rotosolve(self.objective_function, self.initial_guess, options['maxiter'], options['disp'])
         else:
             self.optimized_result = minimize(**kwargs)
 
@@ -251,6 +259,7 @@ class Optimizer:
         if self.is_verbose and not self.settings['bayesian']:
             print(f'Reason for termination is {self.optimized_result.message} ' +
                   f'\nObjective Function Value is {self.optimized_result.fun}')
+        return self.optimized_result
 
     def plot_convergence(self, file, exact_value=None):
         import os
@@ -265,7 +274,6 @@ class Optimizer:
         plt.show()
         if file:
             plt.savefig(dir_path + '/' + file)
-
 
 
 class GuessInitialFullParameterOptimizer(Optimizer):    
@@ -403,3 +411,46 @@ def random_full_rank_circuit(length, depth, ψχϕs=None):
         circuit.append(cirq.SWAP(qubits[-1], qubits[0]))
     return circuit
 
+def double_rotosolve(ϵ, initial_parameters, N_iters=100, disp=True):
+    S = []
+    ss = []
+    es = []
+    params = initial_parameters
+    I = np.eye(len(params))
+    for w in range(N_iters):
+        if disp:
+            print(w, ', ', sep='', end='', flush=True)
+        for i, _ in tqdm(enumerate(params)):
+            def M(x):
+                return np.sum(ϵ(params+I[i]*x))
+            A = (M(0)+M(np.pi))
+            B = (M(0)-M(np.pi))
+            C = (M(np.pi/2)+M(-np.pi/2))
+            D = (M(np.pi/2)-M(-np.pi/2))
+            E = (M(np.pi/4)-M(-np.pi/4))
+
+            a, b, c, d = 1/4*(2*E-np.sqrt(2)*D), 1/4*(A-C), 1/2*D, 1/2*B
+
+            P = np.sqrt(a**2+b**2)
+            u = np.arctan2(b, a)
+            
+            Q = np.sqrt(c**2+d**2)
+            v = np.arctan2(d, c)
+
+            def f(x): return (P*np.sin(2*x+u)+Q*np.sin(x+v))
+
+            θ_ = minimize_scalar(f, bounds = [-np.pi, np.pi]).x
+            #θ_ = (-np.pi/2-np.arctan2(2*ϵ(params)-ϵ(params+I[i]*π/2)-ϵ(params-I[i]*π/2), ϵ(params+I[i]*π/2)-ϵ(params-I[i]*π/2)))
+            params[i] += np.arctan2(np.sin(θ_), np.cos(θ_))
+            #params[i] = np.arctan2(np.sin(params[i]), np.cos(params[i]))
+        print('\n', sep='', end='', flush=True)
+        #double_sinusoids(H, state_function, params)
+        es.append(ϵ(params))
+    return RotosolveResult(es, es[-1], params, '')
+
+class RotosolveResult(object):
+    def __init__(self, history, fun, x, message):
+        self.history = history 
+        self.fun = fun
+        self.x = x
+        self.message = message

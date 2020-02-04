@@ -1,23 +1,28 @@
-import cirq
-from .represent import State, FullStateTensor, FullEnvironment, get_env
-from .represent import full_tomography_env_objective_function
-from .represent import ShallowCNOTStateTensor, ShallowCNOTStateTensor3, ShallowEnvironment
-from .represent import ShallowQAOAStateTensor
-from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
-from .tools import get_env_exact, split_2s
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
 import numpy as np
+import cirq
+
+from .represent import State, FullStateTensor, FullEnvironment, get_env
+from .represent import full_tomography_env_objective_function
+from .represent import ShallowCNOTStateTensor, ShallowCNOTStateTensor3, ShallowEnvironment
+from .represent import ShallowQAOAStateTensor, ShallowFullStateTensor
+
+from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from .tools import get_env_exact, split_2s
+
 from scipy.optimize import approx_fprime
+
 from typing import Callable, List, Dict
 from functools import reduce
 from itertools import product
-from xmps.spin import spins
 
-Sx, Sy, Sz = spins(0.5)
+from xmps.spin import spins, swap, paulis
 
-Sx, Sy, Sz = 2*Sx, 2*Sy, 2*Sz
+π = np.pi
+
+Sx, Sy, Sz = paulis(0.5)
 S = {'I': eye(2), 'X': Sx, 'Y': Sy, 'Z': Sz}
 
 class PauliMeasure(cirq.Gate):
@@ -107,6 +112,115 @@ class Hamiltonian:
         I = eye(2)
         H = reduce(kron, [I]*loc+[H]+[I]*(len(c.all_qubits())-loc-2))
         return real(ψ.conj().T@H@ψ)
+
+class SparseFullEnergyOptimizer(Optimizer):
+    def __init__(self,
+                 H,
+                 D=2,
+                 depth=2,
+                 state_tensor=ShallowCNOTStateTensor,
+                 optimize_environment=False,
+                 env_depth=4,
+                 initial_guess = None,
+                 settings: Dict = None):
+        self.optimize_environment = optimize_environment
+        self.env_depth = env_depth
+        self.state_tensor=state_tensor
+        self.H = H
+        self.D = D
+        self.d = 2
+        if self.optimize_environment:
+            initial_guess = randn(30) if initial_guess is None else initial_guess
+            self.objective_function = self.objective_function_opt_environment
+        else:
+            initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
+            self.objective_function = self.objective_function_exact_environment
+        self.p = len(initial_guess)
+        u_original = self.state_tensor(D, initial_guess)
+        v_original = None
+
+        super().__init__(u_original, v_original, initial_guess)
+
+
+    def objective_function_exact_environment(self, u_params):
+        U = self.state_tensor(self.D, u_params)
+        #V = self.env_optimizer(U, self.env_depth).get_env().v
+        try:
+            V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
+        except np.linalg.LinAlgError:
+            print('LinAlgError')
+            return self.f
+
+        qbs = cirq.LineQubit.range(2+V.num_qubits())
+        sim = cirq.Simulator()
+
+        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
+        H = kron(kron(eye(self.D), self.H), eye(self.D))
+
+        ψ = sim.simulate(C).final_state
+
+        self.f =  real(ψ.conj().T@H@ψ)
+        return self.f
+
+    def objective_function_opt_environment(self, params):
+        def op_H(H):
+            #H = np.eye(4)
+            return reduce(np.kron, [np.eye(2), H, np.eye(2)])
+        H = op_H(self.H)
+        assert len(params)==30
+        def gate(v):
+            return ShallowFullStateTensor(2, v)
+
+        def state(params, which='energy'):
+            p2, p1 = np.split(params, 2)
+            if which=='energy':
+                qbs = cirq.LineQubit.range(4)
+                C = cirq.Circuit.from_ops([gate(p1)(*qbs[2:]),
+                                           gate(p2)(*qbs[1:3]),
+                                           gate(p2)(*qbs[:2])])
+                s = cirq.Simulator()
+                return s.simulate(C).final_state
+            elif which=='v_purity':
+                qbs = [[cirq.GridQubit(y, x) for x in range(2)]
+                        for y in range(2)]
+                C = cirq.Circuit.from_ops([gate(p1)(*qbs[0][:2]),
+                                           gate(p1)(*qbs[1][:2]),
+                                           cirq.SWAP(*qbs[0][:2])])
+                s = cirq.Simulator()
+                return s.simulate(C).final_state
+            elif which=='u_purity':
+                qbs = [[cirq.GridQubit(y, x) for x in range(3)]
+                        for y in range(2)]
+                C = cirq.Circuit.from_ops([gate(p1)(*qbs[0][1:]),
+                                           gate(p2)(*qbs[0][:2]),
+                                           gate(p1)(*qbs[1][1:]),
+                                           gate(p2)(*qbs[1][:2]),
+                                           cirq.SWAP(*qbs[0][:2]),
+                                           cirq.SWAP(*qbs[0][1:])])
+                s = cirq.Simulator()
+                return s.simulate(C).final_state
+            elif which=='uv_purity':
+                qbs = cirq.LineQubit.range(5)
+                C = cirq.Circuit.from_ops([gate(p1)(*qbs[3:]),
+                                           gate(p2)(*qbs[2:4]),
+                                           gate(p1)(*qbs[:2]),
+                                           cirq.SWAP(*qbs[:2])])
+                s = cirq.Simulator()
+                return s.simulate(C).final_state
+        def ϵ(x):
+            uv_state, u_state, v_state, e_state = (state(x, 'uv_purity'),
+                                                   state(x, 'u_purity'),
+                                                   state(x, 'v_purity'),
+                                                   state(x, 'energy'))
+            v_purity = np.real(v_state.conj().T@np.kron(np.eye(2), np.kron(swap(), np.eye(2)))@v_state)
+            u_purity = np.real(u_state.conj().T@np.kron(np.eye(4), np.kron(swap(), np.eye(4)))@u_state)
+            uv_purity = np.real(uv_state.conj().T@np.kron(np.kron(np.eye(2), swap()), np.eye(4))@uv_state)
+            energy = np.real(e_state.conj().T@H@e_state)
+
+            k = 1
+            return sum([energy,+k*u_purity,+k*v_purity,-2*k*uv_purity])
+
+        return ϵ(params)
 
 class NonSparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
@@ -230,49 +344,6 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     def update_state(self):
         self.U = U4(self.optimized_result.x)
 
-class SparseFullEnergyOptimizer(Optimizer):
-    def __init__(self,
-                 H,
-                 D=2,
-                 depth=2,
-                 env_optimizer=None,
-                 env_depth=4,
-                 state_tensor=ShallowCNOTStateTensor,
-                 initial_guess = None,
-                 settings: Dict = None):
-        self.env_optimizer = env_optimizer
-        self.env_depth = env_depth
-        self.state_tensor=state_tensor
-        self.H = H
-        self.D = D
-        self.d = 2
-        initial_guess = array([randn(), randn()]*depth) if initial_guess is None else initial_guess
-        self.p = len(initial_guess)
-        u_original = self.state_tensor(D, initial_guess)
-        v_original = None
-
-        super().__init__(u_original, v_original, initial_guess)
-
-    def objective_function(self, u_params):
-        U = self.state_tensor(self.D, u_params)
-        #V = self.env_optimizer(U, self.env_depth).get_env().v
-        try:
-            V = FullEnvironment(get_env_exact(cirq.unitary(U))) # for testing
-        except np.linalg.LinAlgError:
-            print('LinAlgError')
-            return self.f
-
-        qbs = cirq.LineQubit.range(2+V.num_qubits())
-        sim = cirq.Simulator()
-
-        C =  cirq.Circuit().from_ops(State(U, V, 2)(*qbs))
-        H = kron(kron(eye(self.D), self.H), eye(self.D))
-
-        ψ = sim.simulate(C).final_state
-
-        self.f =  real(ψ.conj().T@H@ψ)
-        return self.f
-
 class NoisySparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
 
@@ -361,5 +432,4 @@ class NoisySparseSampledEnergyOptimizer(Optimizer):
     def objective_function(params):
         self.u_params, self.v_params = (params[:self.n_state_params],
                                         params[self.n_state_params:])
-
 

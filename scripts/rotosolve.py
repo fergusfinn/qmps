@@ -175,6 +175,7 @@ def double_sinusoids(H, state_function, parameters, args=()):
         plt.plot(xs, es)
     plt.show()
 
+
 def rotosolve(H, state_function, initial_parameters, args=(), N_iters=10):
     """rotosolve
 
@@ -193,7 +194,6 @@ def rotosolve(H, state_function, initial_parameters, args=(), N_iters=10):
 
         def ϵ(x):
             return np.real(state_function(x, *args).conj().T@H@state_function(x, *args))
-
 
         for i, _ in enumerate(params):
             θ_ = (-np.pi/2-np.arctan2(2*ϵ(params)-ϵ(params+I[i]*π/2)-ϵ(params-I[i]*π/2), ϵ(params+I[i]*π/2)-ϵ(params-I[i]*π/2)))

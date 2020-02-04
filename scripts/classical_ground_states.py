@@ -1,4 +1,4 @@
-"""How does noise affect optimization performance"""
+"""classica"""
 import numpy as np
 
 from tenpy.networks.mps import MPS
