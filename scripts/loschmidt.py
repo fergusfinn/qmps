@@ -238,7 +238,7 @@ def obj(p, A, WW):
     ff = np.sqrt(2*np.abs(s.simulate(C).final_state[0]))
     return -ff
 
-def noisy_obj(p, A, WW, prob = 0):
+def noisy_obj(p, A, WW, prob=0):
     B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
 
     E = Map(np.tensordot(WW, merge(A, A), [1, 0]), merge(B, B))
@@ -335,7 +335,8 @@ def loschmidt(t, g0, g1):
 
 if __name__=='__main__':
     g0, g1 = 1.5, 0.2
-    ps = [4, 2]
+    noises = [0, 1e-4, 1e-3, 1e-2]
+    ps = [4]
     T = np.linspace(0, 3, 150)
     dt = T[1]-T[0]
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()*2*dt)
@@ -343,40 +344,44 @@ if __name__=='__main__':
 
     Q = [loschmidt(t, g0, g1) for t in T]
 
-    A, es = find_ground_state(Hamiltonian({'ZZ':-1, 'X':g0}).to_matrix(), 2, tol=1e-2, noisy=True)
+    A, es = find_ground_state(Hamiltonian({'ZZ':-1, 'X':g0}).to_matrix(), 2, tol=1e-2, noisy=False)
 
-    print(es[-1])
-
-    lles = []
-    eevs = []
-    eers = []
-
-    for N in tqdm(ps):
-        res = minimize(obj, np.random.randn(N), 
-                       (A[0], np.eye(4)), 
-                       method='Nelder-Mead',
-                       options={'disp':True}) # get the initial state
-        params = res.x
-        
-        paramss = [params]
-        evs = []
-        les = []
-        errs = [res.fun]
-
-        for _ in tqdm(T):
-            A_ = iMPS([unitary_to_tensor(cirq.unitary(gate(params)))]).left_canonicalise()
-            evs.append(A_.Es(ops))
-            les.append(A_.overlap(A))
-            res = minimize(noisy_obj, params, (A_[0], WW), options={'disp':True})
-
+    lesss = [] # loschmidt echoes, all noise, all ps
+    evsss = [] # expectation values, all noise, all ps
+    errsss = [] # errors, all noise all ps
+    for noise in tqdm(noises):
+        less = [] # loschmidt echoes, fixed noise, all ps
+        evss = [] # expectation values, fixed noise, all ps
+        errss = [] # errors, fixed noise all ps
+        for N in tqdm(ps):
+            res = minimize(obj, np.random.randn(N), 
+                           (A[0], np.eye(4)), 
+                           method='Nelder-Mead',
+                           options={'disp':False}) # get the initial state
             params = res.x
-            errs.append(res.fun)
-            paramss.append(params)
+            
+            paramss = [params]
+            evs = []
+            les = []
+            errs = [res.fun]
 
-        lles.append(les)
-        eevs.append(evs)
-        eers.append(errs)
+            for _ in tqdm(T):
+                A_ = iMPS([unitary_to_tensor(cirq.unitary(gate(params)))]).left_canonicalise()
+                evs.append(A_.Es(ops))
+                les.append(A_.overlap(A))
+                res = minimize(noisy_obj, params, (A_[0], WW, noise), options={'disp':False})
 
+                params = res.x
+                errs.append(res.fun)
+                paramss.append(params)
+
+            less.append(les)
+            evss.append(evs)
+            errss.append(errs)
+        lesss.append(less)
+        evsss.append(evss)
+        errsss.append(errss)
+    print(np.array(lesss).shape)
     n = 4
     color = (plt.cm.viridis(np.linspace(0, 1, n)))
     mpl.rcParams['axes.prop_cycle'] = cycler.cycler('color', color)
@@ -384,13 +389,14 @@ if __name__=='__main__':
     #markers = [':', '--', '-.', ':']*2
     markers = ['-']*8
     fig, ax = plt.subplots(1, 1, sharex=True)
-    #ax[0].plot(T, eevs)
+    #ax[0].plot(T, evss)
 
-    for q, i in enumerate(ps):
-        ax.plot(T, -np.log(np.array(lles)).T[0][:, q], label='depth = {}'.format(i), linestyle = markers[q])
-        ax.set_ylabel('Loschmidt Echo')
-    #j=8
-    #ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[j])
+    for j, noise in enumerate(noises):
+        for i, p in enumerate(ps):
+            ax.plot(T, -np.log(np.array(lesss))[j, i, :, 0], label='depth = {}, $\eta={}$'.format(p, noise), linestyle = markers[i])
+            ax.set_ylabel('Loschmidt Echo')
+
+    #ax.plot(T, -np.log(np.array(less)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[j])
     ax.plot(T, Q, c='black', label='exact', linestyle='--')
 
     ax.legend(loc=1)
