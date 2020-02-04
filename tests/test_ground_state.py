@@ -1,4 +1,4 @@
-import unittest 
+import unittest
 
 from qmps.ground_state import *
 from qmps.tools import unitary_to_tensor, random_circuit, random_full_rank_circuit
@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 
 class TestGroundState(unittest.TestCase):
     def setUp(self):
-        N = 3  
+        N = 3
         self.xs = [randn(8, 8)+1j*randn(8, 8) for _ in range(N)]
         self.As = [iMPS().random(2, 2).mixed() for _ in range(N)]
         self.verbose=True
@@ -26,9 +26,9 @@ class TestGroundState(unittest.TestCase):
     def test_Hamiltonian_to_matrix(self):
         J = -1
         g = 1
-        H =  np.array([[J,g/2,g/2,0], 
-                       [g/2,-J,0,g/2], 
-                       [g/2,0,-J,g/2], 
+        H =  np.array([[J,g/2,g/2,0],
+                       [g/2,-J,0,g/2],
+                       [g/2,0,-J,g/2],
                        [0,g/2,g/2,J]] )
 
         H_ = Hamiltonian({'ZZ': -1, 'X': 1}).to_matrix()
@@ -72,7 +72,7 @@ class TestGroundState(unittest.TestCase):
             ev_ = np.around(array(list(map(lambda x: 1-2*int(x), meas))).mean(), 3)
             diff = norm(ev-ev_)
             self.assertTrue(norm(ev-ev_)<5e-2)
-    
+
     @unittest.skip('x')
     def test_Hamiltonian_measure(self):
         qubits = cirq.LineQubit.range(2)
@@ -101,9 +101,9 @@ class TestGroundState(unittest.TestCase):
                 f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
                 E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
                 exact_es.append(E0_exact)
-                H =  np.array([[J,g/2,g/2,0], 
-                               [g/2,-J,0,g/2], 
-                               [g/2,0,-J,g/2], 
+                H =  np.array([[J,g/2,g/2,0],
+                               [g/2,-J,0,g/2],
+                               [g/2,0,-J,g/2],
                                [0,g/2,g/2,J]] )
 
 
@@ -134,15 +134,15 @@ class TestGroundState(unittest.TestCase):
     @unittest.skip('x')
     def test_NoisyNonSparseFullEnergyOptimizer_no_noise(self):
         for AL, AR, C in [self.As[0]]:
-            J, g = -1, 1 
-            H =  np.array([[J,g/2,g/2,0], 
-                           [g/2,-J,0,g/2], 
-                           [g/2,0,-J,g/2], 
+            J, g = -1, 1
+            H =  np.array([[J,g/2,g/2,0],
+                           [g/2,-J,0,g/2],
+                           [g/2,0,-J,g/2],
                            [0,g/2,g/2,J]] )
 
             opt_noisy = NoisyNonSparseFullEnergyOptimizer(H, 0.)
             opt_clean = NonSparseFullEnergyOptimizer(H)
-            N = 10 
+            N = 10
             for _ in range(N):
                 x = randn(15)
                 self.assertTrue(np.allclose(opt_noisy.objective_function(x), opt_clean.objective_function(x)))
@@ -159,13 +159,10 @@ class TestGroundState(unittest.TestCase):
                 f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
                 E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
                 exact_es.append(E0_exact)
-                H =  np.array([[J,g/2,g/2,0], 
-                               [g/2,-J,0,g/2], 
-                               [g/2,0,-J,g/2], 
+                H =  np.array([[J,g/2,g/2,0],
+                               [g/2,-J,0,g/2],
+                               [g/2,0,-J,g/2],
                                [0,g/2,g/2,J]] )
-
-    #            ψ, e = find_ground_state(H, 2)
-    #            xmps_es.append(e[-1])
 
                 opt = NoisyNonSparseFullEnergyOptimizer(H, 1e-2)
                 sets = opt.settings
@@ -179,18 +176,14 @@ class TestGroundState(unittest.TestCase):
                 opt.optimize()
 
                 qmps_es.append(opt.obj_fun_values[-1])
-                #self.assertTrue(opt.obj_fun_values[-1] > E0_exact-1e-3)
             qmps_norm = norm(np.array(exact_es)-np.array(qmps_es))
-    #        xmps_norm = norm(np.array(exact_es)-np.array(xmps_es))
-    #        print('xmps norm', xmps_norm)
             print('qmps norm', qmps_norm)
 
-            #self.assertTrue(qmps_norm < 1e-1 or qmps_norm < xmps_norm)
             plt.plot(gs, exact_es)
-    #        plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
 
+    @unittest.skip('x')
     def test_SparseFullEnergyOptimizer(self):
         for AL, AR, C in [self.As[0]]:
             gs = np.linspace(0.1, 2, 10)
@@ -202,9 +195,9 @@ class TestGroundState(unittest.TestCase):
                 f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
                 E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
                 exact_es.append(E0_exact)
-                H =  np.array([[J,g/2,g/2,0], 
-                               [g/2,-J,0,g/2], 
-                               [g/2,0,-J,g/2], 
+                H =  np.array([[J,g/2,g/2,0],
+                               [g/2,-J,0,g/2],
+                               [g/2,0,-J,g/2],
                                [0,g/2,g/2,J]] )
 
 
@@ -236,6 +229,11 @@ class TestGroundState(unittest.TestCase):
             #plt.plot(gs, xmps_es)
             plt.plot(gs, qmps_es)
             plt.show()
+
+    def test_NoisySparseSampledEnergyOptimizer(self):
+
+
+
 
 if __name__=='__main__':
     unittest.main(verbosity=2)
