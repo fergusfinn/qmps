@@ -238,6 +238,85 @@ def obj(p, A, WW):
     ff = np.sqrt(2*np.abs(s.simulate(C).final_state[0]))
     return -ff
 
+def noisy_obj(p, A, WW, prob = 0):
+    B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
+
+    E = Map(np.tensordot(WW, merge(A, A), [1, 0]), merge(B, B))
+
+    x, r = E.right_fixed_point()
+    x_, l = E.left_fixed_point()
+    l = r
+
+    U = Environment(tensor_to_unitary(A), 'U')
+    U_ = Environment(tensor_to_unitary(B), 'U\'')
+
+    R = Environment(put_env_on_left_site(r), 'θR')
+    left = put_env_on_right_site(l.conj().T)
+    L = Environment(left, 'θL')
+    
+    W = Environment(WW, 'W')
+
+    qbs = cirq.LineQubit.range(6)
+    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+                               U(*qbs[2:4]),
+                               U(*qbs[1:3]),
+                               W(*qbs[2:4]),
+                               L(*qbs[0:2]),
+                               R(*qbs[4:]),
+                               cirq.inverse(U_)(*qbs[1:3]),
+                               cirq.inverse(U_)(*qbs[2:4]),
+                               cirq.CNOT(*qbs[3:5]), cirq.H(qbs[3])])
+
+    noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(prob))
+    system_qubits = sorted(C.all_qubits())
+    noisy_circuit = cirq.Circuit()
+    for moment in C:
+        noisy_circuit.append(noise.noisy_moment(moment, system_qubits))
+    s = cirq.Simulator(dtype=np.complex128)
+    ff = np.sqrt(2*np.abs(s.simulate(noisy_circuit).final_state[0]))
+    return -ff
+
+def noisy_sampled_obj(p, A, WW, prob = 1e-4, repetitions=5000):
+    B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
+
+    E = Map(np.tensordot(WW, merge(A, A), [1, 0]), merge(B, B))
+
+    x, r = E.right_fixed_point()
+    x_, l = E.left_fixed_point()
+    l = r
+
+    U = Environment(tensor_to_unitary(A), 'U')
+    U_ = Environment(tensor_to_unitary(B), 'U\'')
+
+    R = Environment(put_env_on_left_site(r), 'θR')
+    left = put_env_on_right_site(l.conj().T)
+    L = Environment(left, 'θL')
+    
+    W = Environment(WW, 'W')
+
+    qbs = cirq.LineQubit.range(6)
+    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+                               U(*qbs[2:4]),
+                               U(*qbs[1:3]),
+                               W(*qbs[2:4]),
+                               L(*qbs[0:2]),
+                               R(*qbs[4:]),
+                               cirq.inverse(U_)(*qbs[1:3]),
+                               cirq.inverse(U_)(*qbs[2:4]),
+                               cirq.CNOT(*qbs[3:5]), cirq.H(qbs[3]),
+                               cirq.measure(*qbs, key='result')])
+
+    noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(prob))
+    noisy_circuit = cirq.Circuit()
+    for moment in C:
+        noisy_circuit.append(noise.noisy_moment(moment, qbs))
+
+    s = cirq.Simulator(dtype=np.complex128)
+    output = s.run(noisy_circuit, repetitions=repetitions).measurements['result']
+    p0 = sum([int(not any(x)) for x in output])/len(output)
+    ff = np.sqrt(2*np.sqrt(p0))
+    return -ff
+
 def f(z, g0, g1):
     def theta(k, g):
         return np.arctan2(np.sin(k), g-np.cos(k))/2
@@ -256,7 +335,7 @@ def loschmidt(t, g0, g1):
 
 if __name__=='__main__':
     g0, g1 = 1.5, 0.2
-    ps = range(8, 2, -2)
+    ps = [4, 2]
     T = np.linspace(0, 3, 150)
     dt = T[1]-T[0]
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()*2*dt)
@@ -288,7 +367,7 @@ if __name__=='__main__':
             A_ = iMPS([unitary_to_tensor(cirq.unitary(gate(params)))]).left_canonicalise()
             evs.append(A_.Es(ops))
             les.append(A_.overlap(A))
-            res = minimize(obj, params, (A_[0], WW), options={'disp':True})
+            res = minimize(noisy_obj, params, (A_[0], WW), options={'disp':True})
 
             params = res.x
             errs.append(res.fun)
@@ -308,14 +387,11 @@ if __name__=='__main__':
     #ax[0].plot(T, eevs)
 
     for q, i in enumerate(ps):
-        print(ps, i)
-        print(np.max(list(ps))-i)
-        j = int((np.max(list(ps))-i)/2)
-        ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[q])
+        ax.plot(T, -np.log(np.array(lles)).T[0][:, q], label='depth = {}'.format(i), linestyle = markers[q])
         ax.set_ylabel('Loschmidt Echo')
     #j=8
     #ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[j])
-    ax.plot(T, Q, c='black', label='exact')
+    ax.plot(T, Q, c='black', label='exact', linestyle='--')
 
     ax.legend(loc=1)
 

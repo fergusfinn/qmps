@@ -239,25 +239,34 @@ class TestGroundState(unittest.TestCase):
             plt.show()
 
     def test_Rotosolve(self):
-        J, g = -1, 0.5 
-        f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
-        E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
-        H =  np.array([[J,g/2,g/2,0], 
-                       [g/2,-J,0,g/2], 
-                       [g/2,0,-J,g/2], 
-                       [0,g/2,g/2,J]] )
-        opt = SparseFullEnergyOptimizer(H, optimize_environment=True)
-        sets = opt.settings
-        sets['store_values'] = True
-        sets['method'] = 'Rotosolve'
-        sets['verbose'] = True
-        sets['maxiter'] = 5
-        sets['tol'] = 1e-6
-        opt.change_settings(sets)
-        opt.optimize()
-        res = opt.optimize()
+        comparison = []
+        gs = np.linspace(0, 2, 10)
+        for g in gs:
+            J, g = -1, g
+            f = lambda k,g : -2*np.sqrt(1+g**2-2*g*np.cos(k))/np.pi/2.
+            E0_exact = integrate.quad(f, 0, np.pi, args=(g,))[0]
+            H =  np.array([[J,g/2,g/2,0], 
+                           [g/2,-J,0,g/2], 
+                           [g/2,0,-J,g/2], 
+                           [0,g/2,g/2,J]] )
+            opt = SparseFullEnergyOptimizer(H, optimize_environment=True)
+            sets = opt.settings
+            sets['store_values'] = True
+            sets['method'] = 'Rotosolve'
+            sets['verbose'] = True
+            sets['maxiter'] = 20 
+            opt.change_settings(sets)
+            opt.optimize()
+            res = opt.optimize()
 
-        print(E0_exact, res.fun)
+            comparison.append([E0_exact, res.fun])
+        comparison = np.array(comparison)
+        linestyles = ['-', '--']
+        colors = ['C0', 'black']
+        labels = ['rotosolve', 'exact']
+        for i, row in enumerate(comparison.T):
+            plt.plot(gs, row, linestyle=linestyles[i], color = colors[i], label=labels[i])
+        plt.show()
 
 if __name__=='__main__':
     unittest.main(verbosity=2)

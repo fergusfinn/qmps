@@ -391,13 +391,3 @@ class ShallowEnvironment(cirq.Gate):
     def _circuit_diagram_info_(self, args):
         return ['V'] * self.n_qubits
 
-
-
-
-
-
-
-
-
-
-
