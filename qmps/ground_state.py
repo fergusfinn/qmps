@@ -419,7 +419,6 @@ class NoisySparseSampledEnergyOptimizer(Optimizer):
         self.n_env_params = n_env_params
         self.n_samples = n_samples
         self.initial_guess = initial_guess if initial_guess is not None else randn(n_state_params+n_env_params)
-        self.optimize_env = optimize_env
         self.state_ansatz = state_ansatz
         self.env_ansatz = env_ansatz
         self.u_params, self.v_params = (initial_guess[:self.n_state_params],
@@ -429,7 +428,26 @@ class NoisySparseSampledEnergyOptimizer(Optimizer):
         v_original = self.environment_ansatz(D, self.u_params)
         super().__init__(u_original, v_original, initial_guess)
 
-    def objective_function(params):
+        if optimize_env:
+            self.objective_function = self.objective_function_monte_carlo_opt_env
+
+    def objective_function_monte_carlo_opt_env(self, params):
         self.u_params, self.v_params = (params[:self.n_state_params],
                                         params[self.n_state_params:])
+        U = self.state_ansatz(self.D, u_params)
+        V = self.env_ansatz(self.D, v_params)
 
+        qbs = cirq.LineQubit.range(int(2*np.log2(self.D)+2))
+
+        C =  cirq.Circuit().from_ops(cirq.decompose(State(U, V, 2)(*qbs)))
+
+        noise = cirq.ConstantQubitNoiseModel(cirq.depolarize(self.depolarizing_prob))
+
+        noisy_circuit = cirq.Circuit()
+        for moment in C:
+            noisy_circuit.append(noise.noisy_moment(moment, qbs))
+
+        return self.H.measure_energy(noisy_circuit, system_qubits, self.n_samples)
+
+    def objective_function_density_matrix_opt_env(self, params):
+        pass
