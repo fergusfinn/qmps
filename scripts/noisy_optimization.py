@@ -41,8 +41,8 @@ for i, p in enumerate(ps):
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
-        sets['maxiter'] = 500
-        sets['tol'] = 1e-4
+        sets['maxiter'] = 700
+        sets['tol'] = 1e-6
         opt.change_settings(sets)
         opt.optimize()
 

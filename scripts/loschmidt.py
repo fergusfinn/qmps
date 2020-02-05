@@ -31,10 +31,10 @@ def merge(A, B):
     return np.tensordot(A, B, [2, 1]).transpose([0, 2, 1, 3]).reshape(2*A.shape[0], 2, 2)
 
 def put_env_on_left_site(q, ret_n=False):
-    # Take a matrix q (2x2) and create U such that 
+    # Take a matrix q (2x2) and create U such that
     # (right 0-|---|--0
     #          | u |        =  q_{ij}
-    # (left) i-|---|--j 
+    # (left) i-|---|--j
     q = q.T
     a, b, c, d = q.reshape(-1)
     n = np.sqrt(np.abs(a)**2+ np.abs(c)**2+ np.abs(b)**2+ np.abs(d)**2)
@@ -79,7 +79,7 @@ def test():
         V = put_env_on_right_site(q)
         assert np.allclose(V.conj().T@V, np.eye(U.shape[0]))
         assert np.allclose(U.conj().T@U, np.eye(U.shape[0]))
-        
+
     for _ in range(N):
         A = iMPS().random(2, 2).left_canonicalise()[0]
         B = iMPS().random(2, 2).left_canonicalise()[0]#np.tensordot(expm(-1j*Z*dt), A, [1, 0])
@@ -117,7 +117,7 @@ def test():
 
         qbs = cirq.LineQubit.range(4)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]), 
+            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
                                        R(*qbs[2:]),
                                        g[0](qbs[1]),
                                        cirq.CNOT(*qbs[1:3]), cirq.H(qbs[1])])
@@ -154,7 +154,7 @@ def test():
 
         qbs = cirq.LineQubit.range(3)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]), 
+            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
                                        L(*qbs[:2]),
                                        g[0](qbs[2]),
                                        cirq.CNOT(*qbs[1:3]), cirq.H(qbs[1])])
@@ -205,7 +205,7 @@ def gate(v, symbol='U'):
     """gate to use for U
     """
     return ShallowCNOTStateTensor(2, v)
-    
+
 def obj(p, A, WW):
     B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
 
@@ -221,7 +221,7 @@ def obj(p, A, WW):
     R = Environment(put_env_on_left_site(r), 'θR')
     left = put_env_on_right_site(l.conj().T)
     L = Environment(left, 'θL')
-    
+
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
@@ -253,7 +253,7 @@ def noisy_obj(p, A, WW, prob=0):
     R = Environment(put_env_on_left_site(r), 'θR')
     left = put_env_on_right_site(l.conj().T)
     L = Environment(left, 'θL')
-    
+
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
@@ -291,7 +291,7 @@ def noisy_sampled_obj(p, A, WW, prob = 1e-4, repetitions=5000):
     R = Environment(put_env_on_left_site(r), 'θR')
     left = put_env_on_right_site(l.conj().T)
     L = Environment(left, 'θL')
-    
+
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
@@ -353,12 +353,12 @@ if __name__=='__main__':
         evss = [] # expectation values, fixed noise, all ps
         errss = [] # errors, fixed noise all ps
         for N in tqdm(ps):
-            res = minimize(obj, np.random.randn(N), 
-                           (A[0], np.eye(4)), 
+            res = minimize(obj, np.random.randn(N),
+                           (A[0], np.eye(4)),
                            method='Nelder-Mead',
                            options={'disp':False}) # get the initial state
             params = res.x
-            
+
             paramss = [params]
             evs = []
             les = []
