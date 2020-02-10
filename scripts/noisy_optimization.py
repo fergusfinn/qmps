@@ -9,7 +9,7 @@ plt.style.use('pub_fast')
 
 D = 2
 
-gs = np.linspace(0.1, 2, 6)
+gs = np.linspace(0.1, 2, 8)
 exact_es = []
 qmps_es = []
 
@@ -41,7 +41,7 @@ for i, p in enumerate(ps):
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
-        sets['maxiter'] = 700
+        sets['maxiter'] = 1500
         sets['tol'] = 1e-6
         opt.change_settings(sets)
         opt.optimize()

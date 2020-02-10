@@ -334,9 +334,9 @@ def loschmidt(t, g0, g1):
 
 if __name__=='__main__':
     g0, g1 = 1.5, 0.2
-    noises = [0, 1e-4, 1e-3, 1e-2]
+    noises = [1e-4, 1e-3, 3e-3, 5e-3, 1e-2]
     ps = [8]
-    T = np.linspace(0, 3, 150)
+    T = np.linspace(0, 6, 300)
     dt = T[1]-T[0]
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()*2*dt)
     ops = paulis(0.5)
