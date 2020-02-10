@@ -37,11 +37,11 @@ for i, p in enumerate(ps):
                        [0,g/2,g/2,J]] )
 
 
-        opt = NoisySparseFullEnergyOptimizer(H, 1e-4,  D, p, initial_guess=initial_guess)
+        opt = NoisySparseFullEnergyOptimizer(H, 3e-4,  D, p, initial_guess=initial_guess)
         sets = opt.settings
         sets['store_values'] = True
         sets['method'] = 'Nelder-Mead'
-        sets['maxiter'] = 700
+        sets['maxiter'] = 1000
         sets['tol'] = 1e-6
         opt.change_settings(sets)
         opt.optimize()
