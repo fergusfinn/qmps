@@ -117,7 +117,7 @@ def test():
 
         qbs = cirq.LineQubit.range(4)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
+            C = cirq.Circuit(*[cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
                                        R(*qbs[2:]),
                                        g[0](qbs[1]),
                                        cirq.CNOT(*qbs[1:3]), cirq.H(qbs[1])])
@@ -127,7 +127,7 @@ def test():
 
         qbs = cirq.LineQubit.range(4)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
+            C = cirq.Circuit([*cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
                                        U(*qbs[0:2]),
                                        R(*qbs[2:]),
                                        g[0](qbs[0]),
@@ -138,7 +138,7 @@ def test():
 
         qbs = cirq.LineQubit.range(5)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[2]), cirq.CNOT(*qbs[2:4]),
+            C = cirq.Circuit(*[cirq.H(qbs[2]), cirq.CNOT(*qbs[2:4]),
                                        U(*qbs[1:3]),
                                        U(*qbs[0:2]),
                                        R(*qbs[3:]),
@@ -154,7 +154,7 @@ def test():
 
         qbs = cirq.LineQubit.range(3)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
+            C = cirq.Circuit(*[cirq.H(qbs[1]), cirq.CNOT(*qbs[1:3]),
                                        L(*qbs[:2]),
                                        g[0](qbs[2]),
                                        cirq.CNOT(*qbs[1:3]), cirq.H(qbs[1])])
@@ -165,7 +165,7 @@ def test():
 
         qbs = cirq.LineQubit.range(4)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[2]), cirq.CNOT(*qbs[2:4]),
+            C = cirq.Circuit(*[cirq.H(qbs[2]), cirq.CNOT(*qbs[2:4]),
                                        U(*qbs[1:3]),
                                        L(*qbs[:2]),
                                        g[0](qbs[3]),
@@ -178,7 +178,7 @@ def test():
 
         qbs = cirq.LineQubit.range(5)
         for g in zip([cirq.I, cirq.X, cirq.Y, cirq.Z], [I, X, Y, Z]):
-            C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+            C = cirq.Circuit(*[cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                        U(*qbs[2:4]),
                                        U(*qbs[1:3]),
                                        L(*qbs[0:2]),
@@ -190,7 +190,7 @@ def test():
             assert np.allclose(2*s.simulate(C).final_state[0]-x**2*np.trace(g[1]@l.conj()), 0, 1e-6, 1e-6)
 
         qbs = cirq.LineQubit.range(6)
-        C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+        C = cirq.Circuit(*[cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                    U(*qbs[2:4]),
                                    U(*qbs[1:3]),
                                    L(*qbs[0:2]),
@@ -225,7 +225,7 @@ def obj(p, A, WW):
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
-    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+    C = cirq.Circuit(*[cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                U(*qbs[2:4]),
                                U(*qbs[1:3]),
                                W(*qbs[2:4]),
@@ -257,7 +257,7 @@ def noisy_obj(p, A, WW, prob=0):
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
-    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+    C = cirq.Circuit(*[cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                U(*qbs[2:4]),
                                U(*qbs[1:3]),
                                W(*qbs[2:4]),
@@ -295,7 +295,7 @@ def noisy_sampled_obj(p, A, WW, prob = 1e-4, repetitions=5000):
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
-    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+    C = cirq.Circuit(*[cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                U(*qbs[2:4]),
                                U(*qbs[1:3]),
                                W(*qbs[2:4]),
@@ -334,9 +334,15 @@ def loschmidt(t, g0, g1):
 
 if __name__=='__main__':
     g0, g1 = 1.5, 0.2
+<<<<<<< HEAD
     noises = [1e-4, 1e-3, 3e-3, 5e-3, 1e-2]
     ps = [8]
     T = np.linspace(0, 6, 300)
+=======
+    noises = [0, 1e-4, 1e-3, 1e-2]
+    ps = [8]
+    T = np.linspace(0, 3, 150)
+>>>>>>> 5bf9abeea920cb89093fafd9cc4717df9bd9de0c
     dt = T[1]-T[0]
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()*2*dt)
     ops = paulis(0.5)
