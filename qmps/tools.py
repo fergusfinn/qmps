@@ -13,7 +13,10 @@ from xmps.iMPS import TransferMatrix, iMPS
 from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
 
-from skopt import gp_minimize
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from skopt import gp_minimize
 
 import matplotlib.pyplot as plt
 import os
