@@ -307,7 +307,14 @@ class TDVPCircuitCalculator(CircuitSolver):
 
 
 class ManifoldOverlap():
-
+    
+    # the partial decorator works like this:
+    # parial(jit, static_argnums = (0,))(ciruit)
+    # Jit cannot take classes as an input but we can define this as a static 
+    #   argument and jit will ignore it.
+    # Then this new function gets applied to the circuit function.
+    
+    @partial(jit, static_argnums = (0,))
     def circuit(U1, U2, U1_, U2_, M, W, path):
         
         overlap = jnp.einsum(
@@ -336,7 +343,7 @@ class ManifoldOverlap():
     
 class RightEnvironment():
     
-    
+    @partial(jit, static_argnums = (0,))
     def circuit(U1, U2, U1_, U2_, M, path):
         M_ij = jnp.einsum(
             U2_, [11,12,10,9],
@@ -348,9 +355,11 @@ class RightEnvironment():
             optimize = path
         )[:,:,0,0,0,0]
         
-        return M_ij / np.linalg.norm(M_ij)
-
+        return M_ij / jnp.linalg.norm(M_ij)
     
+class Optimizer(CircuitSolver):
+    def __init__(U1, U2):
+        
     
 
 

@@ -5,6 +5,7 @@ from numpy import kron
 from functools import reduce
 from scipy.linalg import expm
 import cirq
+from qmps.tools import tensor_to_unitary
 from scipy.optimize import minimize
 from argparse import ArgumentParser
 ## Things I will need to install locally on Myriad ##
@@ -102,6 +103,50 @@ def scars_time_evolve_cost_function(params, current_params, ham):
     psi = sim.simulate(circuit).final_state[0]
     return -np.abs(psi)*2
 
+def scars_cost_fun_alternate(params, current_params, ham):
+    '''
+    This cost function doesn't use the quantum circuit parameterisation
+    
+    params are formatted like: [θ1, ϕ1, ϕ2, θ2], for convenience with the classical differential eqn solver
+    '''    
+    θ1, ϕ1, ϕ2, θ2 = current_params
+    θ1_, ϕ1_, ϕ2_, θ2_ = params
+    
+    A1 = A(θ1, ϕ1)
+    A2 = A(θ2, ϕ2)
+    A1_= A(θ1_, ϕ1_)
+    A2_= A(θ2_, ϕ2_)
+    
+    A12 = merge(A1,A2)
+    A12_= merge(A1_,A2_)
+    
+    _, r = Map(A12, A12_).right_fixed_point()
+    R = Tensor(put_env_on_left_site(r), 'R')
+    L = Tensor(put_env_on_right_site(r.conj().T),'L')
+    
+    U12 = Tensor(tensor_to_unitary(A12),'U')
+    U12_= Tensor(tensor_to_unitary(A12_),'U\'')
+    
+    q = cirq.LineQubit.range(8)
+    circuit = cirq.Circuit.from_ops([
+        cirq.H(q[5]),
+        cirq.CNOT(q[5],q[6]),
+        U12(*q[3:6]),
+        U12(*q[1:4]),
+        L(*q[0:2]),
+        ham(*q[2:6]),
+        R(*q[6:8]),
+        cirq.inverse(U12_(*q[1:4])),
+        cirq.inverse(U12_(*q[3:6])),
+        cirq.CNOT(q[5],q[6]),
+        cirq.H(q[5])
+    ])
+    
+    # print(circuit.to_text_diagram(transpose = True))
+    sim = cirq.Simulator(dtype=np.complex128)
+    ψ = sim.simulate(circuit).final_state[0]
+    return -np.abs(ψ)*2
+
 
 def simulate_scars(initial_params, params):
     dt, timesteps = params
@@ -117,8 +162,6 @@ def simulate_scars(initial_params, params):
         res = minimize(scars_time_evolve_cost_function, current_params, args = (current_params, hamiltonian), options = {'disp':False,'xatol':1e-5, 'fatol':1e-5}, method = 'Nelder-Mead')
         current_params = res.x
     
-#     if save_file:
-#         np.save(save_file, np.array(final_params))
     
     return np.array(final_params)
 

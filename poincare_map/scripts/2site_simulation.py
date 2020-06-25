@@ -162,10 +162,7 @@ def simulate_scars(initial_params, params):
         final_params.append(current_params)
         res = minimize(scars_cost_fun_alternate, current_params, args = (current_params, hamiltonian), options = {'disp':False,'xatol':1e-5, 'fatol':1e-5}, method = 'Nelder-Mead')
         current_params = res.x
-    
-#     if save_file:
-#         np.save(save_file, np.array(final_params))
-    
+        
     return np.array(final_params)
 
 
