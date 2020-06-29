@@ -253,7 +253,8 @@ def interpolate_functions(x, t, results):
         f4 = interp1d(t[x-1:x+2], results[x-1:x+2,3], kind='linear')
 
     return f1, f2, f3, f4
-
+        
+        
 def plot_map_variable(angles, show = True):
     cm = plt.cm.twilight_shifted
     # plt.gca().set_prop_cycle(plt.cycler('color', cm(np.linspace(0, 1, len(angles)))))
@@ -666,7 +667,45 @@ def save_high_order_params(filename, max_iter, tol, savename,txt):
     with open(savename, 'w') as f:
         f.write(param_string)
         
+ 
+def poincare_section(angles, t):
+    phi1 = []
+    phi2 = []
+    theta2 = []
+    
+    # shift the angles theta1 so that the sign changes as it crosses the plane
+    #   at theta1 = 0.9 
+    mod_theta1 = centre_plane(angles[:,0])
+    
+    # find the points where the sign of mod_theta1 change
+    x_points = find_crossing_points(mod_theta1)
+    
+    for x in x_points:
+        # find the functions that approximate the angle evolution near the
+        #   crossing point using function interpolation
+        f1,f2,f3,f4 = interpolate_functions(x[0], t, angles)
         
+        # find approximate crossing time using root finding algorithms on 
+        #   approximate interpolated functions
+        t0 = find_zero(x[0], t, f1)
+        
+        # put this crossing time in to the other interpolated functions to
+        #   find their approximate values at the time of crossing
+        phi1.append(f2(t0))
+        phi2.append(f3(t0))
+        theta2.append(f4(t0))
+        
+        # We know the crossing point of theta1 is approx 0.9. Return the 4 
+        #   values in a 2x2 matrix.
+    
+    phi1 = np.mod(phi1, 2*np.pi)
+    phi2 = np.mod(phi2, 2*np.pi)
+    theta2 = np.mod(theta2, 2*np.pi)
+
+    return np.column_stack(([0.9]*len(phi1), phi1, phi2, theta2))
+
+
+       
 if __name__ == "__main__":
     
     angles_1d = const_energy_simulation(0.1, 2000, 0.3, True)        
