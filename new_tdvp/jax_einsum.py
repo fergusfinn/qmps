@@ -29,8 +29,6 @@ for i in range(1000):
     device_put_times["U3"].append(-start3 + end3)
 
 
-
-
 path_jax = np.einsum_path(
         U1, [6,7,26,27],
         U1, [8,9,28,29],
