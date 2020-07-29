@@ -52,8 +52,6 @@ def loschmidt_evolve(DT, STEPS):
     loschmidt_results = []
     loschmidt_results.append(ground_state)
     
-    EV = Evolve()
-    
     H1 = Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()
     
     H = tensor([H1, I, I]) + tensor([I, H1, I]) + tensor([I, I, H1])
@@ -62,7 +60,7 @@ def loschmidt_evolve(DT, STEPS):
     
     init_params = ground_state.x
     
-    loschmidt_results = EV.time_evolve(STEPS, W, init_params, False)
+    loschmidt_results = OP.evolve.time_evolve(STEPS, W, init_params, False)
         
     with open(f"loschmidt_{DT}_{STEPS}.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
