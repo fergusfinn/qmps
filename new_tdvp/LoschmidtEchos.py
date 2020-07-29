@@ -88,9 +88,10 @@ def loschmidt_evolve(DT, STEPS):
         loschmidt_results.append(res_e)
         init_params = res_e.x
         
-    with open("loschmidt2.pkl", "wb") as f:
+    with open(f"loschmidt_{DT}_{STEPS}.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
-    
+        print("Results Saved")
+        
     return loschmidt_results
 
 
@@ -127,8 +128,8 @@ def plot_loschmidt():
 
 
 if __name__ == "__main__":
-    l = plot_loschmidt()
-        
+    res = loschmidt_evolve(0.001, 10000)
+        print()
     
     
     
