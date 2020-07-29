@@ -52,6 +52,8 @@ def loschmidt_evolve(DT, STEPS):
     loschmidt_results = []
     loschmidt_results.append(ground_state)
     
+    EV = Evolve()
+    
     H1 = Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()
     
     H = tensor([H1, I, I]) + tensor([I, H1, I]) + tensor([I, I, H1])
@@ -59,34 +61,8 @@ def loschmidt_evolve(DT, STEPS):
     W = expm(1j * H * DT).reshape(2,2,2,2,2,2,2,2)
     
     init_params = ground_state.x
-    for i in tqdm(range(STEPS)):
-        
-        U1, U2 = Op.evolve.paramU(init_params)
-        
-        record_optimize = np.random.rand(1)
-        
-        if record_optimize < 0.1:
-            res_e = Op.evolve.exact_optimize(W, 
-                                             U1.reshape(2,2,2,2), 
-                                             U2.reshape(2,2,2,2), 
-                                             initial_params = init_params,
-                                             record = True)
-            
-            plt.figure()
-            plt.plot(Op.evolve.cf_convergence)
-            plt.title(f"Energy Convergence for run {i}")
-            plt.show()
-
-        else:
-            res_e = Op.evolve.exact_optimize(W, 
-                                             U1.reshape(2,2,2,2), 
-                                             U2.reshape(2,2,2,2), 
-                                             initial_params = init_params,
-                                             record = False)
-
-        
-        loschmidt_results.append(res_e)
-        init_params = res_e.x
+    
+    loschmidt_results = EV.time_evolve(STEPS, W, init_params, False)
         
     with open(f"loschmidt_{DT}_{STEPS}.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
@@ -129,7 +105,7 @@ def plot_loschmidt():
 
 if __name__ == "__main__":
     res = loschmidt_evolve(0.001, 10000)
-        print()
+    
     
     
     
