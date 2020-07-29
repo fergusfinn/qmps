@@ -632,7 +632,7 @@ class Evolve(CircuitSolver):
 
         overlap = self.MO.circuit(self.U1, self.U2, 
                                   U1_, U2_, 
-                                  Mr, Ml, 
+                                  Mr, Mr.conj().T, 
                                   self.W, 
                                   self.path)
         
@@ -677,10 +677,9 @@ class Evolve(CircuitSolver):
         res = minimize(self.exact_cost_function, 
                        x0 = initial_params,
                        callback = callback,
-                       options = {"fatol":1e-4,
-                                  "xatol":1e-6,
-                                  "adaptive": True},
-                       method = "Nelder-Mead")
+                       options = {"ftol":1e-6,
+                                  "xtol":1e-6},
+                       method = "Powell")
         
         return res
     
@@ -705,7 +704,7 @@ class Evolve(CircuitSolver):
             
             if show_convergence:
                 flag = np.random.rand(1)
-                if flag < 0.1:
+                if flag < 0.5:
                     plt.plot(self.cf_convergence)
                     plt.title(f"Convergence of step {i}")
                     plt.show()

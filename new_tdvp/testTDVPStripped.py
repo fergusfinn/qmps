@@ -167,7 +167,7 @@ class Tests():
         eta, eig_vec = RE.exact_environment(U1, U2, U1_, U2_)
         assert eta == 1
         assert np.allclose(eig_vec, ( 1/np.sqrt(2) )* np.array([[1,0],[0,1]]))
-    
+        
 
     def test_manifold_overlap(self):
         """
@@ -353,12 +353,12 @@ class Tests():
             
         # Test that we see oscillating evolution of expectation values when 
         #   evolving under the same hamiltonian
-            DT = 0.01
-            STEPS = 100
+            DT = 0.001
+            STEPS = 3000
             H = tensor([self.X0, self.X0, self.X0, self.X0])
             W = expm(-1j * H * DT).reshape(2,2,2,2,2,2,2,2)
             
-            res = EV.time_evolve(STEPS, W, show_convergence=True)
+            res = EV.time_evolve(STEPS, W, show_convergence=False)
             exp_vals = []
             OC = OverlapCalculator() 
             for r in res:
@@ -371,6 +371,7 @@ class Tests():
                 
             plt.plot(exp_vals)
             plt.show()
+            return exp_vals
     
     def test(self):
         """
@@ -418,4 +419,4 @@ class Tests():
 
 if __name__ == "__main__":
     t = Tests()
-    t.test_compilation_unitary()
+    e = t.test_time_evolution(True)
