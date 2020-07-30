@@ -5,7 +5,7 @@ Created on Fri Jun 12 16:02:05 2020
 
 @author: jamie
 """
-
+#from numba import jit
 import jax.numpy as jnp
 from jax import device_put, jit
 import numpy as np
@@ -23,7 +23,68 @@ import matplotlib.pyplot as plt
 from math import isclose
 from tqdm import tqdm
 
+@jit
+def ry(x):
+    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[0, -1j], [1j, 0]])
+@jit
+def rz(x):
+    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[1, 0],[0, -1]])
+@jit
+def rx(x):
+    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[0, 1],[1, 0]])
 
+@jit
+def U(p1,p2,p3):
+    return rz(p1) @ ry(p2) @ rz(p3)
+
+
+CNOT = jnp.array([
+            [1,0,0,0],
+            [0,1,0,0],
+            [0,0,0,1],
+            [0,0,1,0]
+        ])
+
+CNOTr = jnp.array([
+            [1,0,0,0],
+            [0,0,0,1],
+            [0,0,1,0],
+            [0,1,0,0]
+        ])
+
+
+@jit
+def matrix(params):
+    """
+     Return the following parametrised 2 qubit unitary:
+          
+      |      |
+    Rz(0)  Rz(3)
+    Ry(1)  Ry(4)
+    Rz(2)  Rz(5)
+      |      |
+      @------x
+    Rz(6)  Ry(7)
+      x------@
+      |    Ry(8)
+      @------x
+      |      |
+    Rz(9)  Rz(12)
+    Ry(10) Ry(13)
+    Rz(11) Rz(14)
+      |      |
+      
+      """
+    
+    p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14 = params
+    
+    U1 = U(p2, p1, p0)
+    U2 = U(p5, p4, p3)
+    U3 = U(p11, p10, p9)
+    U4 = U(p12, p13, p14)
+    
+    return jnp.kron(U3, U4) @ CNOTr @ jnp.kron(np.eye(2), ry(p8)) @ CNOT @ jnp.kron(rz(p6), ry(p7)) @ CNOTr @ jnp.kron(U1, U2)
+  
 def OO_lambdas():
     """
     keep only those lambdas which have non-zero elements in the first column
@@ -87,7 +148,8 @@ class ResultObject():
         self.message = message
 
 class CircuitSolver():
-    
+    def __init__(self):
+        pass        
     @staticmethod
     def D(theta): 
         return np.array([
@@ -142,10 +204,10 @@ class CircuitSolver():
         Return unitaries U1 and U2 from 22 params (15 params for the fully
         parametrised U1 and 7 for the single column of the unitary U2)
         """
-        p1 = params[7:]
-        p2 = params[:7]
+        p1 = params[15:]
+        p2 = params[:15]
         
-        U1 = U4(p1) 
+        U1 = matrix(p1) 
         # find a unit norm column that is going to be accessed by the circuit
         #   and embed this column into a larger unitary matrix.
         
@@ -155,7 +217,7 @@ class CircuitSolver():
         ##################################
         # Doesnt look like it works
         
-        U2 = OO_unitary(p2)
+        U2 = matrix(p2)
         
         return U1, U2
 
@@ -234,8 +296,10 @@ class ManifoldOverlap():
             )[0]
         
         return path
-    
+
+
 class LeftEnvironment():
+    
     def exact_environment_circuit(self, U1, U2, U1_, U2_):
         """
         Find the (left) eigenvalue of the matrix:
@@ -244,12 +308,11 @@ class LeftEnvironment():
         \-U2- \     \
         \     \-U1- \
         i     \     j
-              \     
+              \      
         i'    \     j'
         \     \-U1'-\
         \-U2'-\     \
         0     0     0
-        
         """
         
         M_ij = np.einsum(
@@ -266,9 +329,9 @@ class LeftEnvironment():
                 
         M_ij = self.exact_environment_circuit(U1, U2, U1_, U2_)
         
-        eta, r = eig(M_ij)
-        r0 = r[:,np.argmax(eta)].reshape(2,2)
-        return eta[np.argmax(eta)], r0
+        eta, l = eig(M_ij)
+        l0 = l[:,np.argmax(eta)].reshape(2,2)
+        return eta[np.argmax(eta)], l0
         
 
 class RightEnvironment():
@@ -325,9 +388,9 @@ class RightEnvironment():
         Find the eigenvalue of the matrix:
             
         i     0     0
-        \     \-U2- \
-        \     \     \
-        \-U1- \     j
+        \     \-U2--\
+        \-U1--\     \
+        \     \     j
         \     \     
         \     \     j'
         \-U1'-\     \
@@ -356,6 +419,8 @@ class RightEnvironment():
    
     
 class OverlapCalculator(CircuitSolver):
+    def __init__(self):
+        super().__init__()
     """
     This class holds the jitted jax functions that do the tensor network 
     contractions for calculating expectation values of the MPS unitary state
@@ -493,6 +558,7 @@ class Represent(CircuitSolver):
     of the MPS
     """
     def __init__(self):
+        super().__init__()
         self.RE = RightEnvironment()
         self.LE = LeftEnvironment()
         self.right_params = None
@@ -556,6 +622,7 @@ class Optimize(CircuitSolver):
     """
 
     def __init__(self):
+        super().__init__()
         self.OC = OverlapCalculator()
         self.RE = Represent()
         self.path = None
@@ -572,7 +639,7 @@ class Optimize(CircuitSolver):
     def optimize(self, O, initial_params = None):
         
         if initial_params is None:
-            initial_params = np.random.rand(22)
+            initial_params = np.random.rand(30)
         
         self.O = O
         if self.path is None:
@@ -602,6 +669,7 @@ class Evolve(CircuitSolver):
     - exact_optimize: optimize using the exact cost function
     """
     def __init__(self):
+        super().__init__()
         self.MO = ManifoldOverlap()
         self.RE = Represent()
         self.path = self.MO.path()
@@ -640,7 +708,7 @@ class Evolve(CircuitSolver):
     
     def optimize(self, W, U1, U2, initial_params = None):
         if initial_params is None:
-            initial_params = np.random.rand(22)
+            initial_params = np.random.rand(30)
             
         self.W = W
         self.U1 = U1
@@ -661,7 +729,7 @@ class Evolve(CircuitSolver):
     
     def exact_optimize(self, W, U1, U2, initial_params = None, record = False):
         if initial_params is None:
-            initial_params = np.random.rand(22)
+            initial_params = np.random.rand(30)
             
         if record is True:
             self.cf_convergence = []
@@ -677,9 +745,9 @@ class Evolve(CircuitSolver):
         res = minimize(self.exact_cost_function, 
                        x0 = initial_params,
                        callback = callback,
-                       options = {"ftol":1e-6,
-                                  "xtol":1e-6},
-                       method = "Powell")
+                       options = {"fatol":1e-8,
+                                  "xatol":1e-8},
+                       method = "Nelder-Mead")
         
         return res
     
@@ -688,7 +756,7 @@ class Evolve(CircuitSolver):
         Time evolve up to a time T = dt * steps. 
         """
         if init_params is None:
-            init_params = np.random.rand(22)
+            init_params = np.random.rand(30)
         
         
         results = []
@@ -730,6 +798,7 @@ class Optimizer(CircuitSolver):
     """
        
     def __init__(self):
+        super().__init__()
         self.optimize = Optimize()
         self.represent = Represent()
         self.evolve = Evolve()

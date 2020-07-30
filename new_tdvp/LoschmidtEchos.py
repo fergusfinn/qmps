@@ -60,9 +60,9 @@ def loschmidt_evolve(DT, STEPS):
     
     init_params = ground_state.x
     
-    loschmidt_results = OP.evolve.time_evolve(STEPS, W, init_params, False)
+    loschmidt_results = Op.evolve.time_evolve(STEPS, W, init_params, False)
         
-    with open(f"loschmidt_{DT}_{STEPS}.pkl", "wb") as f:
+    with open("loschmidt_0001_10000.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
         print("Results Saved")
         
@@ -79,7 +79,7 @@ def load_echos(file):
 def plot_loschmidt():
     Op = Optimizer()
     gs = ground_state()
-    evos = load_echos("loschmidt2.pkl")
+    evos = load_echos("loschmidt_0001_10000.pkl")
     U1, U2 = Op.represent.paramU(gs.x)
     
     results = []
@@ -89,20 +89,21 @@ def plot_loschmidt():
         U1_ = U1_.conj().T.reshape(2,2,2,2)
         U2_ = U2_.conj().T.reshape(2,2,2,2)
     
-        overlap, _ = Op.represent.RE.exact_environment(U1.reshape(2,2,2,2), 
+        overlap, _ = Op.represent.LE.exact_environment(U1.reshape(2,2,2,2), 
                                                        U2.reshape(2,2,2,2), 
                                                        U1_, U2_)
         
         results.append(overlap)
         
-        log_res.append(-np.log10(np.abs(overlap)**2))
+        log_res.append(-np.log(np.abs(overlap)**2))
         
     plt.plot(log_res)
     return results, log_res
 
 
 if __name__ == "__main__":
-    res = loschmidt_evolve(0.001, 10000)
+    res = loschmidt_evolve(0.0005, 10000)
+    plot_loschmidt()
     
     
     
