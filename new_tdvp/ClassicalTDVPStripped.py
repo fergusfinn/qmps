@@ -22,68 +22,10 @@ from qmps.ground_state import Hamiltonian
 import matplotlib.pyplot as plt
 from math import isclose
 from tqdm import tqdm
-
-@jit
-def ry(x):
-    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[0, -1j], [1j, 0]])
-@jit
-def rz(x):
-    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[1, 0],[0, -1]])
-@jit
-def rx(x):
-    return jnp.eye(2) * jnp.cos(x / 2) - 1j * jnp.sin(x / 2) * jnp.array([[0, 1],[1, 0]])
-
-@jit
-def U(p1,p2,p3):
-    return rz(p1) @ ry(p2) @ rz(p3)
+from qmps.represent import ShallowFullStateTensor
+import cirq
 
 
-CNOT = jnp.array([
-            [1,0,0,0],
-            [0,1,0,0],
-            [0,0,0,1],
-            [0,0,1,0]
-        ])
-
-CNOTr = jnp.array([
-            [1,0,0,0],
-            [0,0,0,1],
-            [0,0,1,0],
-            [0,1,0,0]
-        ])
-
-
-@jit
-def matrix(params):
-    """
-     Return the following parametrised 2 qubit unitary:
-          
-      |      |
-    Rz(0)  Rz(3)
-    Ry(1)  Ry(4)
-    Rz(2)  Rz(5)
-      |      |
-      @------x
-    Rz(6)  Ry(7)
-      x------@
-      |    Ry(8)
-      @------x
-      |      |
-    Rz(9)  Rz(12)
-    Ry(10) Ry(13)
-    Rz(11) Rz(14)
-      |      |
-      
-      """
-    
-    p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14 = params
-    
-    U1 = U(p2, p1, p0)
-    U2 = U(p5, p4, p3)
-    U3 = U(p11, p10, p9)
-    U4 = U(p12, p13, p14)
-    
-    return jnp.kron(U3, U4) @ CNOTr @ jnp.kron(np.eye(2), ry(p8)) @ CNOT @ jnp.kron(rz(p6), ry(p7)) @ CNOTr @ jnp.kron(U1, U2)
   
 def OO_lambdas():
     """
@@ -204,10 +146,10 @@ class CircuitSolver():
         Return unitaries U1 and U2 from 22 params (15 params for the fully
         parametrised U1 and 7 for the single column of the unitary U2)
         """
-        p1 = params[15:]
-        p2 = params[:15]
+        p1 = params[7:]
+        p2 = params[:7]
         
-        U1 = matrix(p1) 
+        U1 = U4(p1) 
         # find a unit norm column that is going to be accessed by the circuit
         #   and embed this column into a larger unitary matrix.
         
@@ -217,7 +159,7 @@ class CircuitSolver():
         ##################################
         # Doesnt look like it works
         
-        U2 = matrix(p2)
+        U2 = OO_unitary(p2)
         
         return U1, U2
 
@@ -639,7 +581,7 @@ class Optimize(CircuitSolver):
     def optimize(self, O, initial_params = None):
         
         if initial_params is None:
-            initial_params = np.random.rand(30)
+            initial_params = np.random.rand(22)
         
         self.O = O
         if self.path is None:
@@ -708,7 +650,7 @@ class Evolve(CircuitSolver):
     
     def optimize(self, W, U1, U2, initial_params = None):
         if initial_params is None:
-            initial_params = np.random.rand(30)
+            initial_params = np.random.rand(22)
             
         self.W = W
         self.U1 = U1
@@ -729,7 +671,7 @@ class Evolve(CircuitSolver):
     
     def exact_optimize(self, W, U1, U2, initial_params = None, record = False):
         if initial_params is None:
-            initial_params = np.random.rand(30)
+            initial_params = np.random.rand(22)
             
         if record is True:
             self.cf_convergence = []
@@ -745,9 +687,9 @@ class Evolve(CircuitSolver):
         res = minimize(self.exact_cost_function, 
                        x0 = initial_params,
                        callback = callback,
-                       options = {"fatol":1e-8,
-                                  "xatol":1e-8},
-                       method = "Nelder-Mead")
+                       options = {"ftol":1e-6,
+                                  "xtol":1e-6},
+                       method = "Powell")
         
         return res
     
@@ -756,7 +698,7 @@ class Evolve(CircuitSolver):
         Time evolve up to a time T = dt * steps. 
         """
         if init_params is None:
-            init_params = np.random.rand(30)
+            init_params = np.random.rand(22)
         
         
         results = []

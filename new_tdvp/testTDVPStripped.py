@@ -354,7 +354,7 @@ class Tests():
         # Test that we see oscillating evolution of expectation values when 
         #   evolving under the same hamiltonian
             DT = 0.001
-            STEPS = 3000
+            STEPS = 1000
             H = tensor([self.X0, self.X0, self.X0, self.X0])
             W = expm(-1j * H * DT).reshape(2,2,2,2,2,2,2,2)
             
