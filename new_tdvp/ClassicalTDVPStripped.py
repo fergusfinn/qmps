@@ -24,7 +24,7 @@ from math import isclose
 from tqdm import tqdm
 from qmps.represent import ShallowFullStateTensor
 import cirq
-
+import sys
 
   
 def OO_lambdas():
@@ -703,7 +703,7 @@ class Evolve(CircuitSolver):
         
         results = []
         
-        for i in tqdm(range(steps)):
+        for i in tqdm(range(steps), file = sys.stdout):
             U1, U2 = self.paramU(init_params)
             
             res_e = self.exact_optimize(W,
