@@ -62,7 +62,7 @@ def loschmidt_evolve(DT, STEPS):
     
     loschmidt_results = Op.evolve.time_evolve(STEPS, W, init_params, False)
         
-    with open("loschmidt_0001_10000.pkl", "wb") as f:
+    with open("loschmidt_00001_30000.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
         print("Results Saved")
         
@@ -102,8 +102,7 @@ def plot_loschmidt():
 
 
 if __name__ == "__main__":
-    res = loschmidt_evolve(0.0005, 10000)
-    plot_loschmidt()
+    res = loschmidt_evolve(0.0001, 30000)
     
     
     
