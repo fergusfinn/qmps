@@ -42,7 +42,6 @@ from qmps.represent import ShallowFullStateTensor
 import cirq
 import sys
 from unitary_param import U4, U4State
-
   
 def OO_lambdas():
     """
