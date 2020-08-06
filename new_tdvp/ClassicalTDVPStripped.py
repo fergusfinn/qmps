@@ -1,22 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Aug  5 10:22:35 2020
-
-@author: jamie
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Aug  5 09:50:08 2020
-
-@author: jamie
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
 Created on Fri Jun 12 16:02:05 2020
 
 @author: jamie
@@ -31,7 +15,7 @@ from math import cos, sin
 from numpy import pi
 from cmath import exp
 from functools import partial
-from xmps.spin import lambdas
+from xmps.spin import U4, lambdas
 from scipy.stats import unitary_group
 from functools import reduce
 from qmps.ground_state import Hamiltonian
@@ -40,8 +24,8 @@ from math import isclose
 from tqdm import tqdm
 from qmps.represent import ShallowFullStateTensor
 import cirq
-import sys
-from unitary_param import U4, U4State
+
+
   
 def OO_lambdas():
     """
@@ -162,8 +146,8 @@ class CircuitSolver():
         Return unitaries U1 and U2 from 22 params (15 params for the fully
         parametrised U1 and 7 for the single column of the unitary U2)
         """
-        p1 = params[9:]
-        p2 = params[:9]
+        p1 = params[7:]
+        p2 = params[:7]
         
         U1 = U4(p1) 
         # find a unit norm column that is going to be accessed by the circuit
@@ -175,8 +159,7 @@ class CircuitSolver():
         ##################################
         # Doesnt look like it works
         
-        U2 = U4State(p2).reshape(2,2)
-
+        U2 = OO_unitary(p2)
         
         return U1, U2
 
@@ -209,9 +192,9 @@ class ManifoldOverlap():
         """                 
         overlap = np.einsum(
                 
-                U2_, [26,27],
-                U2_, [28,29],
-                U2_, [30,31],
+                U2_, [6,7,26,27],
+                U2_, [8,9,28,29],
+                U2_, [10,11,30,31],
                 U1_, [27,28,22,23],
                 U1_, [29,30,24,25],
                 W,[22,23,24,25,18,19,20,21],
@@ -219,27 +202,27 @@ class ManifoldOverlap():
                 Mr, [31,17],
                 U1, [18,19,13,14],
                 U1, [20,21,15,16],
-                U2, [12,13],
-                U2, [14,15],
-                U2, [16,17],
-                                
+                U2, [12,13,0,1],
+                U2, [14,15,2,3],
+                U2, [16,17,4,5],
+                
+                [0,1,2,3,4,5,6,7,8,9,10,11],
+                
                 optimize = path
-            )
+            )[0,0,0,0,0,0 ,0,0,0,0,0,0]
         
         return overlap
     
     def path(self):
         
-        U1, U1_,  = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(2)]
-        U2, U2_,  = [unitary_group.rvs(2) for _ in range(2)]
-
+        U1, U2, U1_, U2_ = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(4)]
         M = unitary_group.rvs(2)
         W = unitary_group.rvs(16).reshape(2,2,2,2,2,2,2,2)
         
         path = np.einsum_path(
-                U2_, [26,27],
-                U2_, [28,29],
-                U2_, [30,31],
+                U2_, [6,7,26,27],
+                U2_, [8,9,28,29],
+                U2_, [10,11,30,31],
                 U1_, [27,28,22,23],
                 U1_, [29,30,24,25],
                 W,[22,23,24,25,18,19,20,21],
@@ -247,9 +230,10 @@ class ManifoldOverlap():
                 M, [31,17],
                 U1, [18,19,13,14],
                 U1, [20,21,15,16],
-                U2, [12,13],
-                U2, [14,15],
-                U2, [16,17],
+                U2, [12,13,0,1],
+                U2, [14,15,2,3],
+                U2, [16,17,4,5],
+                [0,1,2,3,4,5,6,7,8,9,10,11],
                 optimize = "greedy"
             )[0]
         
@@ -274,12 +258,12 @@ class LeftEnvironment():
         """
         
         M_ij = np.einsum(
-                U2_, [7,8],
+                U2_, [3,4,7,8],
                 U1_, [8,5,9,10],
                 U1,  [9,10,11,2],
-                U2,  [6,11],
-                [2,5,6,7]
-            )[:,:,:,:].reshape(4,4)
+                U2,  [6,11,0,1],
+                [0,1,4,3,2,5,6,7]
+            )[0,0,0,0,:,:,:,:].reshape(4,4)
         
         return M_ij
     
@@ -312,31 +296,30 @@ class RightEnvironment():
         """
         
         M_ij = np.einsum(
-            U2_, [10,9],
+            U2_, [11,12,10,9],
             U1_, [2,10,4,5],
             M, [9,8],
             U1,  [4,5,1,3],
-            U2,  [3,8],
-            [2,1],
+            U2,  [3,8,6,7],
+            [2,1,11,12,6,7],
             optimize = path
-        )[:,:]
+        )[:,:,0,0,0,0]
         
         return M_ij
     
     
     def path(self):
         
-        U1, U1_,  = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(2)]
-        U2, U2_,  = [unitary_group.rvs(2) for _ in range(2)]
+        U1, U2, U1_, U2_ = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(4)]
         M = unitary_group.rvs(2)
         
         path = np.einsum_path(            
-            U2_, [10,9],
+            U2_, [11,12,10,9],
             U1_, [2,10,4,5],
             M ,  [9,8],
             U1,  [4,5,1,3],
-            U2,  [3,8],
-            [2,1],
+            U2,  [3,8,6,7],
+            [2,1,11,12,6,7],
             optimize = "greedy"
             )[0]
         return path
@@ -358,12 +341,12 @@ class RightEnvironment():
         """
         M_ij = np.einsum(
                 
-                U2_, [8,7],
+                U2_, [4,5,8,7],
                 U1_, [3,8,9,10],
                 U1,  [9,10,0,11],
-                U2,  [11,6],
-                [0,3,6,7]
-            )[:,:,:,:].reshape(4,4)
+                U2,  [11,6,1,2],
+                [1,2,4,5,0,3,6,7]
+            )[0,0,0,0,:,:,:,:].reshape(4,4)
         
         return M_ij
     
@@ -413,24 +396,24 @@ class OverlapCalculator(CircuitSolver):
         0    0    0    0    0    0
         
         """
-        U2_ = U2.conj().T
+        U2_ = U2.reshape(4,4).conj().T.reshape(2,2,2,2)
         U1_ = U1.reshape(4,4).conj().T.reshape(2,2,2,2)
         
         exp_val = np.einsum(
-                U2_, [12,13],
-                U2_, [14,15],
-                U2_, [16,17],
+                U2_, [6,7,12,13],
+                U2_, [8,9,14,15],
+                U2_, [10,11,16,17],
                 U1_, [13,14,18,19],
                 U1_, [15,16,20,21],
                 O,   [18,19,20,21,22,23,24,25],
                 U1,  [22,23,26,27],
                 U1,  [24,25,28,29],
-                U2,  [12,26],
-                U2,  [27,28],
-                U2,  [29,17],
-                
+                U2,  [12,26,0,1],
+                U2,  [27,28,2,3],
+                U2,  [29,17,4,5],
+                [0,1,2,3,4,5,6,7,8,9,10,11],
                 optimize = path
-            )
+            )[0,0,0,0,0,0 ,0,0,0,0,0,0]
         
         return exp_val.real
     
@@ -453,58 +436,58 @@ class OverlapCalculator(CircuitSolver):
         
         """
 
-        U2_ = U2.conj().T
+        U2_ = U2.reshape(4,4).conj().T.reshape(2,2,2,2)
         U1_ = U1.reshape(4,4).conj().T.reshape(2,2,2,2)
                 
         exp_value = np.einsum(
-                U2_, [8,9],
-                U2_, [10,11],
+                U2_, [4,5,8,9],
+                U2_, [6,7,10,11],
                 U1_, [9,10,12,13],
                 O,   [12,13,14,15],
                 U1,  [14,15,16,17],
-                U2,  [8,16,],
-                U2,  [17,11],
-                
+                U2,  [8,16,0,1],
+                U2,  [17,11,2,3],
+                [4,5,6,7,0,1,2,3],
                 optimize = path
-            )
+            )[0,0,0,0, 0,0,0,0]
         
         return exp_value.real
 
     def qbt2_path(self):
         
-        U1, U1_,O  = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(3)]
-        U2, U2_,  = [unitary_group.rvs(2) for _ in range(2)]
-
+        U1, U2, U1_, U2_, O = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(5)]
+        
         path = np.einsum_path(
-                U2_, [8,9],
-                U2_, [10,11],
+                U2_, [4,5,8,9],
+                U2_, [6,7,10,11],
                 U1_, [9,10,12,13],
                 O,   [12,13,14,15],
                 U1,  [14,15,16,17],
-                U2,  [8,16],
-                U2,  [17,11],
+                U2,  [8,16,0,1],
+                U2,  [17,11,2,3],
+                [4,5,6,7,0,1,2,3],
                 optimize = "greedy"
             )[0]
         
         return path
     
     def qbt4_path(self):
-        U1, U1_,  = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(2)]
-        U2, U2_,  = [unitary_group.rvs(2) for _ in range(2)]
+        U1, U2, U1_, U2_ = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(4)]
         O = unitary_group.rvs(16).reshape(2,2,2,2,2,2,2,2)
         
         path = np.einsum_path(
-                U2_, [12,13],
-                U2_, [14,15],
-                U2_, [16,17],
+                U2_, [6,7,12,13],
+                U2_, [8,9,14,15],
+                U2_, [10,11,16,17],
                 U1_, [13,14,18,19],
                 U1_, [15,16,20,21],
                 O,   [18,19,20,21,22,23,24,25],
                 U1,  [22,23,26,27],
                 U1,  [24,25,28,29],
-                U2,  [12,26],
-                U2,  [27,28],
-                U2,  [29,17],
+                U2,  [12,26,0,1],
+                U2,  [27,28,2,3],
+                U2,  [29,17,4,5],
+                [0,1,2,3,4,5,6,7,8,9,10,11],
                 optimize = "greedy"
             )[0]
         
@@ -590,6 +573,7 @@ class Optimize(CircuitSolver):
     def cost_function(self, params):
         U1, U2 = self.paramU(params)
         U1 = U1.reshape(2,2,2,2)
+        U2 = U2.reshape(2,2,2,2)
     
         exp_val = self.OC.expectation_value(U1, U2, self.O, self.path)
         return exp_val
@@ -597,7 +581,7 @@ class Optimize(CircuitSolver):
     def optimize(self, O, initial_params = None):
         
         if initial_params is None:
-            initial_params = np.random.rand(28)
+            initial_params = np.random.rand(22)
         
         self.O = O
         if self.path is None:
@@ -636,7 +620,7 @@ class Evolve(CircuitSolver):
     def cost_function(self, params):
         U1_, U2_ = self.paramU(params)
         U1_ = U1_.conj().T.reshape(2,2,2,2)
-        U2_ = U2_.conj().T
+        U2_ = U2_.conj().T.reshape(2,2,2,2)        
         
         env_params = self.RE.optimize(self.U1, self.U2, U1_, U2_)
         M = self.M(env_params.x[1:])
@@ -652,7 +636,7 @@ class Evolve(CircuitSolver):
     def exact_cost_function(self, params):
         U1_, U2_ = self.paramU(params)
         U1_ = U1_.conj().T.reshape(2,2,2,2)
-        U2_ = U2_.conj().T        
+        U2_ = U2_.conj().T.reshape(2,2,2,2)        
         
         Mr, Ml = self.RE.exact_env(self.U1, self.U2, U1_, U2_)
 
@@ -666,7 +650,7 @@ class Evolve(CircuitSolver):
     
     def optimize(self, W, U1, U2, initial_params = None):
         if initial_params is None:
-            initial_params = np.random.rand(28)
+            initial_params = np.random.rand(22)
             
         self.W = W
         self.U1 = U1
@@ -687,7 +671,7 @@ class Evolve(CircuitSolver):
     
     def exact_optimize(self, W, U1, U2, initial_params = None, record = False):
         if initial_params is None:
-            initial_params = np.random.rand(28)
+            initial_params = np.random.rand(22)
             
         if record is True:
             self.cf_convergence = []
@@ -703,8 +687,8 @@ class Evolve(CircuitSolver):
         res = minimize(self.exact_cost_function, 
                        x0 = initial_params,
                        callback = callback,
-                       options = {"ftol":1e-8,
-                                  "xtol":1e-8},
+                       options = {"ftol":1e-6,
+                                  "xtol":1e-6},
                        method = "Powell")
         
         return res
@@ -714,17 +698,17 @@ class Evolve(CircuitSolver):
         Time evolve up to a time T = dt * steps. 
         """
         if init_params is None:
-            init_params = np.random.rand(28)
+            init_params = np.random.rand(22)
         
         
         results = []
         
-        for i in tqdm(range(steps), file = sys.stdout):
+        for i in tqdm(range(steps)):
             U1, U2 = self.paramU(init_params)
             
             res_e = self.exact_optimize(W,
                                         U1.reshape(2,2,2,2),
-                                        U2,
+                                        U2.reshape(2,2,2,2),
                                         initial_params = init_params,
                                         record = show_convergence)
             

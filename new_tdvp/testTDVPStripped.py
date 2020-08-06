@@ -364,7 +364,7 @@ class Tests():
             for r in res:
                 U1, U2 = EV.paramU(r.x)
                 exp_val = OC.expectation_value(U1.reshape(2,2,2,2), 
-                                               U2,
+                                               U2.reshape(2,2,2,2),
                                                H.reshape(2,2,2,2,2,2,2,2))
                 
                 exp_vals.append(exp_val)

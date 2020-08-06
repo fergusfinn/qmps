@@ -62,7 +62,7 @@ def loschmidt_evolve(DT, STEPS):
     
     loschmidt_results = Op.evolve.time_evolve(STEPS, W, init_params, False)
         
-    with open("loschmidt_00001_10000.pkl", "wb") as f:
+    with open("loschmidt_00001_30000.pkl", "wb") as f:
         pickle.dump(loschmidt_results, f)
         print("Results Saved")
         
@@ -79,9 +79,9 @@ def load_echos(file):
 def plot_loschmidt():
     Op = Optimizer()
     gs = ground_state()
-    evos = load_echos("loschmidt_00001_30000.pkl")
-    # U1, U2 = Op.represent.paramU(gs.x)
-    U1, U2 = Op.represent.paramU(evos[0].x)
+    evos = load_echos("loschmidt_0001_10000.pkl")
+    U1, U2 = Op.represent.paramU(gs.x)
+    
     results = []
     log_res = []
     for e in evos:
@@ -102,8 +102,7 @@ def plot_loschmidt():
 
 
 if __name__ == "__main__":
-    plot_loschmidt()
-    #res = loschmidt_evolve(0.0001, 30000)
+    res = loschmidt_evolve(0.0001, 30000)
     
     
     
