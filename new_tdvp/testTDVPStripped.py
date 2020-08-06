@@ -10,6 +10,7 @@ from scipy.optimize import minimize
 from numpy import isclose
 from ClassicalTDVPStripped import *
 import pickle
+import matplotlib.pyplot as plt
 
 class Tests():
     
@@ -354,18 +355,18 @@ class Tests():
         # Test that we see oscillating evolution of expectation values when 
         #   evolving under the same hamiltonian
             DT = 0.001
-            STEPS = 1000
+            STEPS = 3000
             H = tensor([self.X0, self.X0, self.X0, self.X0])
-            W = expm(-1j * H * DT).reshape(2,2,2,2,2,2,2,2)
+            W = expm(-1j * H * DT)
             
-            res = EV.time_evolve(STEPS, W, show_convergence=False)
+            res = EV.mtime_evolve(STEPS, W, show_convergence=False)
             exp_vals = []
             OC = OverlapCalculator() 
             for r in res:
                 U1, U2 = EV.paramU(r.x)
-                exp_val = OC.expectation_value(U1.reshape(2,2,2,2), 
-                                               U2.reshape(2,2,2,2),
-                                               H.reshape(2,2,2,2,2,2,2,2))
+                exp_val = OC.mexpectation_value(U1, 
+                                               U2,
+                                               H)
                 
                 exp_vals.append(exp_val)
                 
@@ -420,7 +421,5 @@ class Tests():
 if __name__ == "__main__":
     t = Tests()
     e = t.test_time_evolution(True)
-    with open("test_oscillating_values.pkl", "wb") as f:
-        pickle.dump(loschmidt_results, f)
 
     
