@@ -9,7 +9,7 @@ import numpy as np
 from scipy.optimize import minimize
 from numpy import isclose
 from ClassicalTDVPStripped import *
-
+import pickle
 
 class Tests():
     
@@ -420,3 +420,7 @@ class Tests():
 if __name__ == "__main__":
     t = Tests()
     e = t.test_time_evolution(True)
+    with open("test_oscillating_values.pkl", "wb") as f:
+        pickle.dump(loschmidt_results, f)
+
+    
