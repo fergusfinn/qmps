@@ -1,0 +1,8 @@
+The numpy function takes time: 2.262e-03
+The jitted jax func takes time: 8.658e-04
+Put Tensors on device:
+8.844e-05
+8.528e-05
+9.272e-05
+Total: 2.664e-04
+With device tensors: 3.064e-04Total time on device: 5.728e-04
