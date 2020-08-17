@@ -138,6 +138,7 @@ class SparseFullEnergyOptimizer(Optimizer):
         self.p = len(initial_guess)
         u_original = self.state_tensor(D, initial_guess)
         v_original = None
+        self.f = 0
 
         super().__init__(u_original, v_original, initial_guess)
 

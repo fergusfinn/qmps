@@ -52,37 +52,40 @@ def example_DMRG_heisenberg_xxz_infinite(Jx=1, Jy=1, Jz=1, hx=0, hy=0, hz=0, con
     print(corrs)
     return E, psi, M
 
+def 
 if __name__=='__main__':
-    N = 30
-    chis = (2**np.arange(1, 8)).astype(int)
-    print(chis)
-    e1s = []
-    e2s = []
-    e3s = []
-    e4s = []
-    for chi in chis:
-        e3, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=-4, Jy=-4, Jz=0.01, hx=0., hy=0, hz=0, chi_max = chi, S=0.5)
-        e1, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=-4, Jy=-4, Jz=-4., hx=0., hy=0, hz=0, chi_max = chi, S=0.5)
-        e2, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=0, Jy=0, Jz=-4., hx=2., hy=0, hz=0, chi_max = chi, S=0.5)
-        e4, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=0.5, Jy=0, Jz=-1., hx=1., hy=1, hz=0, chi_max = chi, S=0.5)
-        e1s.append(e1)
-        e2s.append(e2)
-        e3s.append(e3)
-        e4s.append(e4)
-        print(e1, e2, e3, e4)
-    e1s = np.array(e1s)
-    e2s = np.array(e2s)
-    e3s = np.array(e3s)
-    e4s = np.array(e4s)
-    plt.plot(chis[:-1], (e1s-e1s[-1])[:-1], label='xxz')
-    plt.plot(chis[:-1], (e2s-e2s[-1])[:-1], label='tfi')
-    plt.plot(chis[:-1], (e3s-e3s[-1])[:-1], label='xy')
-    plt.plot(chis[:-1], (e4s-e4s[-1])[:-1], label='nc')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.ylabel('$E-E_0$')
-    plt.xlabel('D')
-    plt.legend()
-    plt.show()
-    plt.savefig('../images/noise/convergence.pdf')
+    chi = 2
+    e2, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=0, Jy=0, Jz=4., hx=2., hy=0, hz=0, chi_max = chi, S=0.5)
+    print(e2)
+    #chis = (2**np.arange(1, 8)).astype(int)
+    #print(chis)
+    #e1s = []
+    #e2s = []
+    #e3s = []
+    #e4s = []
+    #for chi in chis:
+    #    e3, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=-4, Jy=-4, Jz=0.01, hx=0., hy=0, hz=0, chi_max = chi, S=0.5)
+    #    e1, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=-4, Jy=-4, Jz=-4., hx=0., hy=0, hz=0, chi_max = chi, S=0.5)
+    #    e2, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=0, Jy=0, Jz=-4., hx=2., hy=0, hz=0, chi_max = chi, S=0.5)
+    #    e4, _, _ = example_DMRG_heisenberg_xxz_infinite(Jx=0.5, Jy=0, Jz=-1., hx=1., hy=1, hz=0, chi_max = chi, S=0.5)
+    #    e1s.append(e1)
+    #    e2s.append(e2)
+    #    e3s.append(e3)
+    #    e4s.append(e4)
+    #    print(e1, e2, e3, e4)
+    #e1s = np.array(e1s)
+    #e2s = np.array(e2s)
+    #e3s = np.array(e3s)
+    #e4s = np.array(e4s)
+    #plt.plot(chis[:-1], (e1s-e1s[-1])[:-1], label='xxz')
+    #plt.plot(chis[:-1], (e2s-e2s[-1])[:-1], label='tfi')
+    #plt.plot(chis[:-1], (e3s-e3s[-1])[:-1], label='xy')
+    #plt.plot(chis[:-1], (e4s-e4s[-1])[:-1], label='nc')
+    #plt.xscale('log')
+    #plt.yscale('log')
+    #plt.ylabel('$E-E_0$')
+    #plt.xlabel('D')
+    #plt.legend()
+    #plt.show()
+    #plt.savefig('../images/noise/convergence.pdf')
 
