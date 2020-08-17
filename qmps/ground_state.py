@@ -62,7 +62,7 @@ class PauliMeasure(cirq.Gate):
 class Hamiltonian:
     """Hamiltonian: string of terms in local hamiltonian.
        Just do quadratic spin 1/2
-       ex. tfim = Hamiltonian({'ZZ': 1, 'X': λ}) = Hamiltonian({'ZZ': 1, 'IX': λ/2, 'XI': λ/2})
+       ex. tfim = Hamiltonian({'ZZ': -1, 'X': λ}) = Hamiltonian({'ZZ': 1, 'IX': λ/2, 'XI': λ/2})
        for parity invariant specify can single site terms ('X')
        otherwise 'IX' 'YI' etc."""
 
