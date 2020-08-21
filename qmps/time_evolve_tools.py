@@ -7,7 +7,6 @@ from xmps.tensor import rotate_to_hermitian
 
 from qmps.represent import StateGate, FullStateTensor, Environment, ShallowFullStateTensor
 from qmps.tools import tensor_to_unitary, environment_to_unitary, unitary_to_tensor, environment_from_unitary, get_env_exact
-from qmps.ground_state import Hamiltonian
 from qmps.rotosolve import gate
 
 from scipy.linalg import null_space, norm,expm

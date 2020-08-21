@@ -82,12 +82,14 @@ def gradient_descent(cf, gf, init, lr = 0.01, tol = 1e-8, miter = 10000, atol = 
         
         iter_ += 1
 
+
 class ResultObject():
     def __init__(self, x, fun, nfev, message):
         self.x = x
         self.fun = fun
         self.nfev = nfev
         self.message = message
+
 
 class CircuitSolver():
     def __init__(self):
@@ -163,7 +165,66 @@ class CircuitSolver():
         
         return U1, U2
 
+class bwMPS():
+    def __init__(self, Us, l):
+        self.layers = len(Us)
+        self.Us = Us 
+        self.l = l # length of unitaries needed - depends on location of 
+                        # operator
+                    
+    @staticmethod
+    def tensor(tensors):
+        return reduce(lambda t1,t2: np.kron(t1,t2), tensors)
+
+    def state(self):
+        I = np.eye(2)
+        psi = np.array([1] + [0]*( (2**(2*self.l)) - 1) )
+        
+        for i, u in enumerate(self.Us):
+            
+            if i % 2 == 0:
+                psi = self.tensor([u]*self.l) @ psi
+                
+            else:
+                psi = self.tensor([I] + ([u]*(self.l - 1)) + [I]) @ psi 
+        
+        return psi
+
+def state_from_params(p,l):
+    U1,U2 = CircuitSolver().paramU(p)
+    return bwMPS([U2,U1], l).state()
     
+    
+def optimize_2layer_bwmps(H):
+    
+    def obj(p):
+        psi1 = state_from_params(p, 2)
+        H1 = np.kron(np.kron(np.eye(2), H), np.eye(2))
+        E1 = np.real(psi1.conj().T @ H1 @ psi1)
+        
+        psi2 = state_from_params(p, 3)
+        H2 = np.kron(np.kron(np.kron(np.eye(2),np.eye(2)), H), np.kron(np.eye(2), np.eye(2)))
+        E2 = np.real(psi2.conj().T @ H2 @ psi2)
+        
+        return (E1 + E2) / 2
+    
+    opt = []
+    def cb(xk):
+        f = obj(xk)
+        print(f)
+        opt.append(f)
+        
+    
+    init_p = np.random.rand(22)
+    
+    res = minimize(obj, init_p, 
+                   method = "Nelder-Mead", 
+                   options = {"maxiter":10000}, 
+                   tol = 1e-8,
+                   callback = cb)
+    return opt
+
+
 class ManifoldOverlap():
     """
     This class holds the jitted jax functions that do the tensor network 
@@ -569,7 +630,7 @@ class Represent(CircuitSolver):
                        options = {"disp":False,
                                   "xatol":1e-8,
                                   "fatol":1e-8,
-                                  "maxiter":10000})
+                                     "maxiter":10000})
         
         self.right_params = res
         return res
