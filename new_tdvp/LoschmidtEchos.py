@@ -1,109 +1,149 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Jul 20 08:43:37 2020
-
-@author: jamie
-"""
-
-from ClassicalTDVPStripped import Optimizer, tensor
-from qmps.ground_state import Hamiltonian
 import numpy as np
-import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 from scipy.linalg import expm
+from ClassicalTDVPStripped import tensor, CircuitSolver
+from BrickWallMPS import optimize_2layer_bwmps, state_from_params, LeftEnvironment, RightEnvironment
+from qmps.ground_state import Hamiltonian
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 import pickle
 
 
-def ground_state():
-    I = np.eye(2)
-    g0, g1 = 1.5, 0.2
-    
-    H0 = Hamiltonian({'ZZ':-1, 'X':g0}).to_matrix()
-    
-    H = tensor([H0, I, I]) + tensor([I, H0, I]) + tensor([I, I, H0])
-    
-    Op = Optimizer()
-    
-    ground_state = Op.optimize.optimize(H.reshape(2,2,2,2,2,2,2,2))
+def ground_state(H):
 
-    return ground_state
+    def obj(p):
+        psi1 = state_from_params(p, 3)
+        return np.real(psi1.conj().T @ H @ psi1)
 
-def loschmidt_evolve(DT, STEPS):
-    print("Finding ground state before quench")
-    print("\n##################################################\n")
+    init_p = np.random.rand(22)
 
-    I = np.eye(2)
-    g0, g1 = 1.5, 0.2
-    
-    H0 = Hamiltonian({'ZZ':-1, 'X':g0}).to_matrix()
-    
-    H = tensor([H0, I, I]) + tensor([I, H0, I]) + tensor([I, I, H0])
-    
-    Op = Optimizer()
-    
-    ground_state = Op.optimize.optimize(H.reshape(2,2,2,2,2,2,2,2))
-    plt.plot(Op.optimize.energy_opt)
-    
-    print("Ground State Reached")
-    print("\n##################################################\n")
-    
-    print("Evolving under quenched hamiltonian...")
-    loschmidt_results = []
-    loschmidt_results.append(ground_state)
-    
-    H1 = Hamiltonian({'ZZ':-1, 'X':g1}).to_matrix()
-    
-    H = tensor([H1, I, I]) + tensor([I, H1, I]) + tensor([I, I, H1])
-    
-    W = expm(1j * H * DT).reshape(2,2,2,2,2,2,2,2)
-    
-    init_params = ground_state.x
-    
-    loschmidt_results = Op.evolve.time_evolve(STEPS, W, init_params, False)
-        
-    with open("loschmidt_00001_30000.pkl", "wb") as f:
-        pickle.dump(loschmidt_results, f)
-        print("Results Saved")
-        
-    return loschmidt_results
+    res = minimize(obj, init_p,
+                   method="Nelder-Mead",
+                   options={"maxiter": 10000},
+                   tol=1e-8)
+
+    return res.x
 
 
-def load_echos(file):
-    with open(file, "rb") as f:
-        res = pickle.load(f)
-
-    return res
+def r(m):
+    return m.reshape(2, 2, 2, 2)
 
 
-def plot_loschmidt():
-    Op = Optimizer()
-    gs = ground_state()
-    evos = load_echos("loschmidt_0001_10000.pkl")
-    U1, U2 = Op.represent.paramU(gs.x)
-    
+def time_evolve(init_p, H):
+    C = CircuitSolver()
+    Re = RightEnvironment()
+    U = expm(-1j * H * 0.01)
     results = []
-    log_res = []
-    for e in evos:
-        U1_, U2_ = Op.represent.paramU(e.x)
-        U1_ = U1_.conj().T.reshape(2,2,2,2)
-        U2_ = U2_.conj().T.reshape(2,2,2,2)
-    
-        overlap, _ = Op.represent.LE.exact_environment(U1.reshape(2,2,2,2), 
-                                                       U2.reshape(2,2,2,2), 
-                                                       U1_, U2_)
-        
-        results.append(overlap)
-        
-        log_res.append(-np.log(np.abs(overlap)**2))
-        
-    plt.plot(log_res)
-    return results, log_res
+
+    for _ in tqdm(range(500)):
+        results.append(init_p)
+        res = minimize(obj, init_p,
+                       method="Nelder-Mead",
+                       options={"maxiter": 10000, "disp": True},
+                       tol=1e-4,
+                       args=(init_p, U, Re, C))
+
+        init_p = res.x
+
+    return results
+
+
+def plot_loschmidt(Us):
+    U0 = Us[0]
+    psi0 = state_from_params(U0, 3)
+
+    overlaps = []
+
+    for u in Us:
+        psi = state_from_params(u, 3)
+        overlaps.append(-np.log(np.abs(psi.conj().T @ psi0)**2))
+
+    plt.plot(overlaps)
+    plt.show()
+
+    return overlaps
+
+
+def H2(J, g):
+    I = np.eye(2)
+    H = Hamiltonian({"ZZ": J, "X": g}).to_matrix()
+    return 1/3 * sum([tensor([H, I, I]), tensor([I, H, I]), tensor([I, I, H])])
+
+
+def loschmidt():
+    J, g0, g1 = -1, 1.5, 0.2
+    I = np.eye(2)
+    H2_ = H2(J, g0)
+    H2_ = tensor([I, H2_, I])
+
+    gs = ground_state(H2_)
+
+    H2_ = H2(J, g1)
+
+    te = time_evolve(gs, H2_)
+
+    plot_loschmidt(te)
+
+    with open("Loschmidt_results.pkl", "wb") as f:
+        pickle.dump(te, f)
+
+    return te
+
+
+def obj(p, init_p, U, Re, C):
+    # calcultate the states
+    psi1 = state_from_params(init_p, 3)
+    psi2 = state_from_params(p, 3)
+
+    # claculate the environmet Mr
+    # U1, U2 = C.paramU(init_p)
+    # U1_, U2_ = C.paramU(p)
+    # Mr = Re.exact_environment(r(U1),
+    #                           r(U2),
+    #                           r(U1_.conj().T),
+    #                           r(U2_.conj().T))[1]
+
+    U_ev = tensor([np.eye(2), U, np.eye(2)])
+
+    return -np.abs(psi2.conj().T @ U_ev @ psi1)
 
 
 if __name__ == "__main__":
-    res = loschmidt_evolve(0.0001, 30000)
-    
-    
-    
-    
+    loschmidt()
+    # J, g0, g1 = -1, 1.5, 0.2
+    # I = np.eye(2)
+    # H2_ = H2(J, g0)
+    # H2_ = tensor([I, H2_, I])
+
+    # gs = ground_state(H2_)
+
+    # H2_ = H2(J, g1)
+    # U = expm(-1j * H2_ * 0.001)
+    # C = CircuitSolver()
+    # Re = RightEnvironment()
+    # Le = LeftEnvironment()
+    # res = minimize(obj, gs,
+    #                method="Nelder-Mead",
+    #                options={"maxiter": 10000, "disp": True},
+    #                tol=1e-3,
+    #                args=(gs, U, Re, C))
+
+    # psi1 = state_from_params(gs, 3)
+    # psi2 = state_from_params(res.x, 3)
+
+    # # claculate the environmet Mr
+    # U1, U2 = C.paramU(gs)
+    # U1_, U2_ = C.paramU(res.x)
+    # Mr = Re.exact_environment(r(U1),
+    #                           r(U2),
+    #                           r(U1_.conj().T),
+    #                           r(U2_.conj().T))[1]
+
+    # Ml = Le.exact_environment(r(U1),
+    #                           r(U2),
+    #                           r(U1_.conj().T),
+    #                           r(U2_.conj().T))[1]
+
+    # U_ev = tensor([np.eye(2)/np.sqrt(2), U, np.eye(2) / np.sqrt(2)])
+
+    # -2 * np.abs(psi2.conj().T @ U_ev @ psi1)

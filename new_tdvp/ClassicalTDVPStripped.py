@@ -317,15 +317,15 @@ class LeftEnvironment():
         """
         Find the (left) eigenvalue of the matrix:
             
-        0     0     0
-        \-U2- \     \
-        \     \-U1- \
-        i     \     j
-              \      
-        i'    \     j'
-        \     \-U1'-\
-        \-U2'-\     \
-        0     0     0
+        0     0     
+        |-U2- |     j
+        |     |-U1- |
+        i     |     |
+              |     |
+        i'    |     |
+        |     |-U1'-|
+        |-U2'-|     j'
+        0     0     
         """
         
         M_ij = np.einsum(
@@ -682,7 +682,7 @@ class Optimize(CircuitSolver):
     
     def mcost_function(self, params):
         U1, U2 = self.paramU(params)
-        exp_val = self.OC.mexpectation_value(U1, U2, self.O, self.path)
+        exp_val = self.OC.mexpectation_value(U1, U2, self.O)
         return exp_val
 
         
@@ -965,10 +965,7 @@ I = np.array([
 def tensor(tensors):
     return reduce(lambda t1,t2: np.kron(t1,t2), tensors)
 
-
     
-    
-
     
     
     

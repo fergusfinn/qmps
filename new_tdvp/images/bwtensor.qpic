@@ -1,0 +1,13 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} # Define ket command
+DEFINE U1 G:width=16:fill=red!50!white
+DEFINE U2 G:width=16:fill=blue!50!white
+
+q1 W {$j$} {$\sigma_{1}$}
+q2 W \ket{0} {$\sigma_{2}$}
+q3 W \ket{0} {$i$}
+
+q1 START
+q2 q3 U1 $U1$
+
+q3 END
+q1 q2 U2 $U2$

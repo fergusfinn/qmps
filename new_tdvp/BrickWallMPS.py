@@ -8,7 +8,7 @@ Created on Thu Aug 20 09:13:34 2020
 
 import numpy as np
 from functools import reduce
-from ClassicalTDVPStripped import CircuitSolver
+from ClassicalTDVPStripped import CircuitSolver, tensor
 from scipy.optimize import minimize
 from xmps.spin import U4, lambdas
 from scipy.stats import unitary_group
@@ -67,6 +67,11 @@ class bwMPS():
     def tensor(tensors):
         return reduce(lambda t1,t2: np.kron(t1,t2), tensors)
 
+    def circuit(self, Ml, Mr):
+        C = tensor([Ml,[np.eye(4)]*(self.l-1), Mr])
+        psi = self.state()
+        return C @ psi
+
     def state(self):
         I = np.eye(2)
         psi = np.array([1] + [0]*( (2**(2*self.l)) - 1) )
@@ -80,16 +85,47 @@ class bwMPS():
                 psi = self.tensor([I] + ([u]*(self.l - 1)) + [I]) @ psi 
         
         return psi
+
+    def to_matrix_left(self):
+        """
+        0    0    j
+        |-U2-|    |
+        |    |-U1-|    -->  i--A--j
+        |    |    |            ||
+        i    d    d'         (d,d')
+        """
+        assert len(self.Us) == 2 
+        U2, U1 = self.Us
+        return np.tensordot(U2[...,0,0], U1, (1,2)).reshape(2,4,2)
+
+    def to_matrix_right(self):
+        """
+        i    0    0
+        |    |-U2-|
+        |-U1-|    |    -->  i--A--j
+        |    |    |            ||
+        d    d'   j          (d,d')
+        """
+        assert len(self.Us) == 2 
+        U2,U1 = self.Us
+        return np.transpose(np.tensordot(U2[...,0,0], U1, (0,3)).reshape(2,4,2), [2,1,0])
+
+class bwOverlap():
+    def __init__(self, bws):
+        self.bw1 = bws[0]
+        self.bw2 = bws[1]
+
+    def right_exact_circuit(self):
+        A1 = self.bw1.to_matrix_right()
+        A2 = self.bw2.to_matrix_right().conj().T
+        return np.transpose(np.tensordot(A1, A2, (1,1)), [0,2,1,3]).reshape(4,4)  
     
 def state_from_params(p,l):
     U1,U2 = CircuitSolver().paramU(p)
     return bwMPS([U2,U1], l).state()
 
-
-
-
     
-def optimize_2layer_bwmps(H):
+def optimize_2layer_bwmps(H, test = False):
     
     def obj(p):
         psi1 = state_from_params(p, 2)
@@ -105,7 +141,7 @@ def optimize_2layer_bwmps(H):
     opt = []
     def cb(xk):
         f = obj(xk)
-        print(f)
+        #print(f)
         opt.append(f)
         
     
@@ -116,7 +152,13 @@ def optimize_2layer_bwmps(H):
                    options = {"maxiter":10000}, 
                    tol = 1e-8,
                    callback = cb)
-    return opt
+
+    if test:
+        return opt
+    
+    else:
+        return res
+
 
 class LeftEnvironment():
     

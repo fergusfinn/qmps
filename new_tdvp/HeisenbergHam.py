@@ -107,24 +107,25 @@ def evolve_U1():
         ])
     
     
-    STEPS = 400
+    STEPS = 100
     init_params = np.random.rand(15)
     results = []
-    LE, RE = LeftEnvironment(), RightEnvironment()
+    RE = RightEnvironment()
     
     def obj2(p, U1, h_):
-        U1_ = U4(p)
-        _, Ml = LE.exact_environment(r(U1), r(np.eye(4)), r(U1_.conj().T), r(np.eye(4)))
-        _, Mr = RE.exact_environment(r(U1), r(np.eye(4)), r(U1_.conj().T), r(np.eye(4)))
+        U1_ = U4(p).conj().T
+        _, Mr = RE.exact_environment(r(U1), r(np.eye(4)), r(U1_), r(np.eye(4)))
     
-        return -2 * np.abs((U1_ @ expm(1j * h_ * 0.01) @ U1)[0,0] * Mr[0,0] * Ml[0,0])**2
+        return -2 * np.abs((U1_ @ h_ @ U1)[0,0] * Mr[0,0] * Mr[0,0].conj())**2
     
+    U1 = U1.conj().T
+    hh = expm(1j * hh * 0.01)
     for _ in tqdm(range(STEPS)):
         res = minimize(obj2, 
                        x0 = init_params, 
                        args = (U1, hh),
                        method = "Nelder-Mead",
-                       tol = 1e-5,
+                       tol = 1e-8,
                        options = {"maxiter":40000, 
                                   "disp":True,
                                   "adaptive":True})
@@ -134,7 +135,7 @@ def evolve_U1():
         results.append(res.x)
         
     return results
-    
+
 
 def evolve_and_plot_U1():
     res = evolve_U1()
@@ -187,7 +188,7 @@ def two_cost_functions():
     print((U1_ @ expm(1j * h * 0.01) @ U1)[0,0] * Mr[0,0] * Ml[0,0])
 
 if __name__ == "__main__":
-    evolve_and_plot_U1()
+    evolve_and_plot_U1()    
         
         
         
