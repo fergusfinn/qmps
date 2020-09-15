@@ -5,11 +5,11 @@ from qmps.represent import FullStateTensor, Environment, ShallowFullStateTensor,
 from qmps.time_evolve_tools import merge, put_env_on_left_site, get_env_off_left_site, put_env_on_right_site, get_env_off_right_site
 import numpy as np
 import cirq
+from tqdm import tqdm
 
 from xmps.iMPS import iMPS, Map
 from xmps.spin import paulis
 
-from represent import 
 from scipy.linalg import expm
 from scipy.linalg import null_space, norm
 from scipy.optimize import minimize
@@ -194,11 +194,16 @@ def obj(p_, A, WW):
     p, rs = p_[:15], p_[15:]
     
     B = iMPS([unitary_to_tensor(cirq.unitary(gate(p)))]).left_canonicalise()[0]
+
     U = Environment(tensor_to_unitary(A), 'U')
     U_ = Environment(tensor_to_unitary(B), 'U\'')
+
+    E = Map(np.tensordot(WW, merge(A, A), [1, 0]), merge(B, B))
+    x,r = E.right_fixed_point()
+    x_,l = E.left_fixed_point()
     
-    R = state_gate(rs)
-    L = Environment(put_env_on_right_site(environment_from_unitary(cirq.unitary(R)).conj().T), 'L')
+    R = Environment(put_env_on_left_site(r), 'θR')
+    L = Environment(put_env_on_right_site(r.conj().T), 'θL')
     
     W = Environment(WW, 'W')
     
@@ -261,7 +266,7 @@ if __name__=='__main__':
     #               options={'disp':True})
 
     #params = res.x
-    params = np.random.randn(21)
+    params = np.random.randn(15)
 
     # Define the time evolution operator
     WW = expm(-1j*Hamiltonian({'ZZ':-1, 'X':1}).to_matrix()*dt)
@@ -277,11 +282,9 @@ if __name__=='__main__':
         # current mps tensor
         A_ = iMPS([unitary_to_tensor(cirq.unitary(gate(params)))]).left_canonicalise()
 
-        #es, params = minimize(obj, params, (A_[0], WW), options={'disp':True})
-        es, params = double_rotosolve(obj_H(), obj_state, params, (A_[0], WW))
-        plt.plot(es)
-        plt.show()
-        raise Exception
+        res = minimize(obj, params, (A_[0], WW), options={'disp':True})
+        params = res.x
+        #es, params = double_rotosolve(obj_H(), obj_state, params, (A_[0], WW))
 
         # store params, expectation values and loschmidt echo
         evs.append(A_.Es(ops))
