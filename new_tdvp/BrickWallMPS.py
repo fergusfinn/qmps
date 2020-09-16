@@ -192,8 +192,8 @@ class LeftEnvironment():
         M_ij = self.exact_environment_circuit(U1, U2, U1_, U2_)
         
         eta, l = eig(M_ij)
-        l0 = l[:,np.argmax(np.abs(eta))].reshape(2,2)
-        return eta[np.argmax(np.abs(eta))], l0
+        l0 = l[:,np.argmax(np.abs(eta.real))].reshape(2,2)
+        return eta[np.argmax(np.abs(eta.real))], l0
 
 class RightEnvironment():
     """
@@ -274,9 +274,9 @@ class RightEnvironment():
         M_ij = self.exact_environment_circuit(U1, U2, U1_, U2_)
         
         eta, r = eig(M_ij)
-        r0 = r[:,np.argmax(np.abs(eta))].reshape(2,2)
+        r0 = r[:,np.argmax(np.abs(eta.real))].reshape(2,2)
         
-        return eta[np.argmax(np.abs(eta))], r0 
+        return eta[np.argmax(np.abs(eta.real))], r0 
 
 
 class Represent(CircuitSolver):
@@ -311,9 +311,9 @@ class Represent(CircuitSolver):
                        x0 = [1.0,np.pi/4,0,0,0,0,0],
                        method = "Nelder-Mead",
                        options = {"disp":False,
-                                  "xatol":1e-8,
-                                  "fatol":1e-8,
-                                  "maxiter":10000})
+                                  "xatol":1e-3,
+                                  "fatol":1e-3,
+                                  "maxiter":300})
         
         self.right_params = res
         return res
