@@ -1,5 +1,4 @@
 import cirq 
-from qmps.ground_state import Hamiltonian
 from xmps.spin import paulis, U4, swap
 import numpy as np
 import numpy.random as ra

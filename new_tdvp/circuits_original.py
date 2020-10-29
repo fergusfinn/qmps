@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Wed Aug  5 09:50:08 2020
+
+@author: jamie
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Fri Jun 12 16:02:05 2020
 
 @author: jamie
@@ -15,7 +23,7 @@ from math import cos, sin
 from numpy import pi
 from cmath import exp
 from functools import partial
-from xmps.spin import U4, lambdas
+from xmps.spin import lambdas
 from scipy.stats import unitary_group
 from functools import reduce
 from qmps.ground_state import Hamiltonian
@@ -24,7 +32,8 @@ from math import isclose
 from tqdm import tqdm
 from qmps.represent import ShallowFullStateTensor
 import cirq
-
+import sys
+from .unitary_param import U4, U4State
 
   
 def OO_lambdas():
@@ -82,14 +91,12 @@ def gradient_descent(cf, gf, init, lr = 0.01, tol = 1e-8, miter = 10000, atol = 
         
         iter_ += 1
 
-
 class ResultObject():
     def __init__(self, x, fun, nfev, message):
         self.x = x
         self.fun = fun
         self.nfev = nfev
         self.message = message
-
 
 class CircuitSolver():
     def __init__(self):
@@ -161,70 +168,12 @@ class CircuitSolver():
         ##################################
         # Doesnt look like it works
         
-        U2 = OO_unitary(p2)
+        U2 = U4State(p2)
+        U2 = np.append(U2.reshape(4,1), np.zeros((4,3)))
         
         return U1, U2
 
-class bwMPS():
-    def __init__(self, Us, l):
-        self.layers = len(Us)
-        self.Us = Us 
-        self.l = l # length of unitaries needed - depends on location of 
-                        # operator
-                    
-    @staticmethod
-    def tensor(tensors):
-        return reduce(lambda t1,t2: np.kron(t1,t2), tensors)
-
-    def state(self):
-        I = np.eye(2)
-        psi = np.array([1] + [0]*( (2**(2*self.l)) - 1) )
-        
-        for i, u in enumerate(self.Us):
-            
-            if i % 2 == 0:
-                psi = self.tensor([u]*self.l) @ psi
-                
-            else:
-                psi = self.tensor([I] + ([u]*(self.l - 1)) + [I]) @ psi 
-        
-        return psi
-
-def state_from_params(p,l):
-    U1,U2 = CircuitSolver().paramU(p)
-    return bwMPS([U2,U1], l).state()
     
-    
-def optimize_2layer_bwmps(H):
-    
-    def obj(p):
-        psi1 = state_from_params(p, 2)
-        H1 = np.kron(np.kron(np.eye(2), H), np.eye(2))
-        E1 = np.real(psi1.conj().T @ H1 @ psi1)
-        
-        psi2 = state_from_params(p, 3)
-        H2 = np.kron(np.kron(np.kron(np.eye(2),np.eye(2)), H), np.kron(np.eye(2), np.eye(2)))
-        E2 = np.real(psi2.conj().T @ H2 @ psi2)
-        
-        return (E1 + E2) / 2
-    
-    opt = []
-    def cb(xk):
-        f = obj(xk)
-        print(f)
-        opt.append(f)
-        
-    
-    init_p = np.random.rand(22)
-    
-    res = minimize(obj, init_p, 
-                   method = "Nelder-Mead", 
-                   options = {"maxiter":10000}, 
-                   tol = 1e-8,
-                   callback = cb)
-    return opt
-
-
 class ManifoldOverlap():
     """
     This class holds the jitted jax functions that do the tensor network 
@@ -274,16 +223,6 @@ class ManifoldOverlap():
         
         return overlap
     
-    def mcircuit(self, U1, U2, U1_, U2_, Mr, Ml, W):
-        return np.linalg.multi_dot(
-                [tensor([U2_, U2_, U2_])[0,:],
-                 tensor([np.eye(2), U1_, U1_, np.eye(2)]),
-                 tensor([Ml, W, Mr]),
-                 tensor([np.eye(2), U1, U1, np.eye(2)]),
-                 tensor([U2, U2, U2])[:,0]])
-        
-        
-    
     def path(self):
         
         U1, U2, U1_, U2_ = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(4)]
@@ -317,15 +256,15 @@ class LeftEnvironment():
         """
         Find the (left) eigenvalue of the matrix:
             
-        0     0     
-        |-U2- |     j
-        |     |-U1- |
-        i     |     |
-              |     |
-        i'    |     |
-        |     |-U1'-|
-        |-U2'-|     j'
-        0     0     
+        0     0     0
+        \-U2- \     \
+        \     \-U1- \
+        i     \     j
+              \      
+        i'    \     j'
+        \     \-U1'-\
+        \-U2'-\     \
+        0     0     0
         """
         
         M_ij = np.einsum(
@@ -446,13 +385,6 @@ class OverlapCalculator(CircuitSolver):
         if len(O.shape) == 8:
             return self.qbt4_exp_val(U1, U2, O, path)
     
-    def mexpectation_value(self, U1, U2, O):
-        if O.shape[0] == 4:
-            return self.mqbt2_exp_val(U1, U2, O)
-        
-        if O.shape[0] == 16:
-            return self.mqbt4_exp_val(U1, U2, O)
-    
     def path(self, O):
         if len(O.shape) == 4:
             return self.qbt2_path()
@@ -495,18 +427,6 @@ class OverlapCalculator(CircuitSolver):
         
         return exp_val.real
     
-    def mqbt4_exp_val(self, U1, U2, O):
-        U1_ = U1.conj().T
-        U2_ = U2.conj().T
-        return np.linalg.multi_dot([
-                tensor([U2_, U2_, U2_])[0,:],
-                tensor([np.eye(2), U1_, U1_, np.eye(2)]),
-                tensor([np.eye(2), O, np.eye(2)]),
-                tensor([np.eye(2), U1, U1, np.eye(2)]),
-                tensor([U2, U2, U2])[:,0],
-            ]).real
-        
-    
     
     def qbt2_exp_val(self, U1, U2, O, path = "greedy"):
         """
@@ -542,19 +462,7 @@ class OverlapCalculator(CircuitSolver):
             )[0,0,0,0, 0,0,0,0]
         
         return exp_value.real
-    
-    def mqbt2_exp_val(self, U1, U2, O):
-        U1_ = U1.conj().T
-        U2_ = U2.conj().T
-        return np.linalg.multi_dot([
-                tensor([U2_, U2_])[0,:],
-                tensor([np.eye(2), U1_, np.eye(2)]),
-                tensor([np.eye(2), O, np.eye(2)]),
-                tensor([np.eye(2), U1, np.eye(2)]),
-                tensor([U2, U2])[:,0],
-            ])
 
-    
     def qbt2_path(self):
         
         U1, U2, U1_, U2_, O = [unitary_group.rvs(4).reshape(2,2,2,2) for _ in range(5)]
@@ -630,7 +538,7 @@ class Represent(CircuitSolver):
                        options = {"disp":False,
                                   "xatol":1e-8,
                                   "fatol":1e-8,
-                                     "maxiter":10000})
+                                  "maxiter":10000})
         
         self.right_params = res
         return res
@@ -679,12 +587,6 @@ class Optimize(CircuitSolver):
     
         exp_val = self.OC.expectation_value(U1, U2, self.O, self.path)
         return exp_val
-    
-    def mcost_function(self, params):
-        U1, U2 = self.paramU(params)
-        exp_val = self.OC.mexpectation_value(U1, U2, self.O)
-        return exp_val
-
         
     def optimize(self, O, initial_params = None):
         
@@ -701,23 +603,6 @@ class Optimize(CircuitSolver):
                        method = "Nelder-Mead")
 
         return res
-    
-    def moptimize(self, O, initial_params = None):
-        
-        if initial_params is None:
-            initial_params = np.random.rand(22)
-        
-        self.O = O
-        if self.path is None:
-            self.path = self.OC.path(O)
-        
-        res = minimize(self.mcost_function, 
-                       x0 = initial_params,
-                       callback = self.callback,
-                       method = "Nelder-Mead")
-
-        return res
-
     
     def callback(self, xk):
         self.energy_opt.append(self.cost_function(xk))
@@ -757,24 +642,7 @@ class Evolve(CircuitSolver):
                                   self.path)
         
         return -np.abs(overlap)**2
-    
-    def mcost_function(self, params):
-        U1_, U2_ = self.paramU(params)
-        U1_ = U1_.conj().T
-        U2_ = U2_.conj().T        
         
-        Mr, Ml = self.RE.exact_env(self.U1.reshape(2,2,2,2),
-                                   self.U2.reshape(2,2,2,2), 
-                                   U1_.reshape(2,2,2,2), 
-                                   U2_.reshape(2,2,2,2))
-        
-        overlap = self.MO.mcircuit(self.U1, self.U2, 
-                                  U1_, U2_, 
-                                  Mr, Mr.conj().T,
-                                  self.W)
-        
-        return -np.abs(overlap)**2
-
     def exact_cost_function(self, params):
         U1_, U2_ = self.paramU(params)
         U1_ = U1_.conj().T.reshape(2,2,2,2)
@@ -804,7 +672,7 @@ class Evolve(CircuitSolver):
                        options = {"maxiter":len(initial_params)*1000})
         
         return res
-        
+    
     def callback(self, xk):
         self.cf_convergence.append(self.cost_function(xk))
     
@@ -835,42 +703,17 @@ class Evolve(CircuitSolver):
         
         return res
     
-    def mexact_optimize(self, W, U1, U2, initial_params = None, record = False):
-        if initial_params is None:
-            initial_params = np.random.rand(22)
-            
-        if record is True:
-            self.cf_convergence = []
-            callback = self.exact_callback
-            
-        else:
-            callback = None
-            
-        self.W = W
-        self.U1 = U1
-        self.U2 = U2
-        
-        res = minimize(self.mcost_function, 
-                       x0 = initial_params,
-                       callback = callback,
-                       options = {"ftol":1e-6,
-                                  "xtol":1e-6},
-                       method = "Powell")
-        
-        return res
-
-    
     def time_evolve(self, steps, W, init_params = None, show_convergence = False):
         """
         Time evolve up to a time T = dt * steps. 
         """
         if init_params is None:
-            init_params = np.random.rand(22)
+            init_params = np.random.rand(28)
         
         
         results = []
         
-        for i in tqdm(range(steps)):
+        for i in tqdm(range(steps), file = sys.stdout):
             U1, U2 = self.paramU(init_params)
             
             res_e = self.exact_optimize(W,
@@ -892,38 +735,7 @@ class Evolve(CircuitSolver):
             
         return results
     
-    def mtime_evolve(self, steps, W, init_params = None, show_convergence = False):
-        """
-        Time evolve up to a time T = dt * steps. 
-        """
-        if init_params is None:
-            init_params = np.random.rand(22)
-        
-        
-        results = []
-        
-        for i in tqdm(range(steps)):
-            U1, U2 = self.paramU(init_params)
-            
-            res_e = self.mexact_optimize(W,
-                                        U1,
-                                        U2,
-                                        initial_params = init_params,
-                                        record = show_convergence)
-            
-            if show_convergence:
-                flag = np.random.rand(1)
-                if flag < 0.5:
-                    plt.plot(self.cf_convergence)
-                    plt.title(f"Convergence of step {i}")
-                    plt.show()
-                
-            results.append(res_e)
-            
-            init_params = res_e.x
-            
-        return results
-
+    
 class Optimizer(CircuitSolver): 
     """
     Class to implement representation, optimization, and time evolution.
@@ -965,7 +777,10 @@ I = np.array([
 def tensor(tensors):
     return reduce(lambda t1,t2: np.kron(t1,t2), tensors)
 
+
     
+    
+
     
     
     

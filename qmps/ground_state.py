@@ -1,6 +1,7 @@
 from numpy import array, real, kron, eye, trace, zeros
 from numpy.linalg import qr
 from numpy.random import randn
+from numpy import log2
 import numpy as np
 import cirq
 
@@ -9,16 +10,19 @@ from .represent import full_tomography_env_objective_function
 from .represent import ShallowCNOTStateTensor, ShallowCNOTStateTensor3, ShallowEnvironment
 from .represent import ShallowQAOAStateTensor, ShallowFullStateTensor
 
-from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector
+from .tools import environment_from_unitary, Optimizer, to_real_vector, from_real_vector, unitary_to_tensor, environment_to_unitary
 from .tools import get_env_exact, split_2s
+from qmps.time_evolve_tools import merge
 
 from scipy.optimize import approx_fprime
+from scipy.linalg import cholesky
 
 from typing import Callable, List, Dict
 from functools import reduce
 from itertools import product
 
-from xmps.spin import spins, swap, paulis
+from xmps.spin import spins, swap, paulis, SU, U4
+from xmps.iMPS import iMPS, TransferMatrix
 
 π = np.pi
 
@@ -264,6 +268,75 @@ class NonSparseFullEnergyOptimizer(Optimizer):
     def update_state(self):
         self.U = SU(self.optimized_result.x, 2*self.D)
 
+
+class NonSparseFullTwoSiteEnergyOptimizer(Optimizer):
+    """
+    NonSparse: not a low depth variational optimizer
+    Full: Simulates full wavefunction, i.e. not via sampling
+    TwoSite: 2 site unit cell MPS optimization
+    This is explicitly only for D = 2
+    """
+    def __init__(self, H):
+        initial_guess = randn(30) 
+        self.H = H
+        super().__init__(initial_guess=initial_guess)
+    
+    def env_function_unsure(self, U1, U2):
+        A1 = unitary_to_tensor(U1)
+        A2 = unitary_to_tensor(U2)
+        
+        Al,AR,C = iMPS([A1,A2]).mixed()
+        return environment_to_unitary(C)
+    
+    
+    def env_function(self, U1, U2):
+        A1 = unitary_to_tensor(U1)
+        A2 = unitary_to_tensor(U2)
+
+        A12 = merge(A1,A2)
+        _,__, r = TransferMatrix(A12).eigs()
+        return environment_to_unitary(cholesky(r).conj().T)
+    
+    def objective_function(self, u_params):
+        self.U1 = U1 = SU(u_params[:15], 4)
+        self.U2 = U2 = SU(u_params[15:], 4)
+        
+        V1 = self.env_function(U1, U2)
+        V2 = self.env_function(U2, U1)
+        
+        qbs = cirq.LineQubit.range(4)
+        sim = cirq.Simulator()
+        
+        C1 = cirq.Circuit().from_ops([FullEnvironment(V1)(*qbs[2:4]),
+                                      FullStateTensor(U2)(*qbs[1:3]),
+                                      FullStateTensor(U1)(*qbs[0:2])
+                                     ])
+        
+        C2 = cirq.Circuit().from_ops([FullEnvironment(V2)(*qbs[2:4]),
+                                      FullStateTensor(U1)(*qbs[1:3]),
+                                      FullStateTensor(U2)(*qbs[0:2])
+                                      ])
+
+        
+        H = kron(kron(eye(2),self.H),eye(2))
+        
+        psi1 = sim.simulate(C1).final_state
+        psi2 = sim.simulate(C2).final_state
+        
+        E1 = real(psi1.conj().T @ H @ psi1)
+        E2 = real(psi2.conj().T @ H @ psi2)
+        
+        # print(f"Psi1 = {E1}")
+        # print(f"Psi2 = {E2}")
+        f = (E1 + E2) / 2
+        return f
+    
+    def update_state(self):
+        self.u1 = SU(self.optimized_result.x[:15], 4)
+        self.u2 = SU(self.optimized_result.x[15:], 4)
+
+
+
 class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
 
@@ -311,6 +384,8 @@ class NoisyNonSparseFullEnergyOptimizer(Optimizer):
 
         f =  real(trace(ρ@H))
         return f
+    
+
 
     def objective_function_monte_carlo(self, u_params):
         U = U4(u_params)
