@@ -1,0 +1,11 @@
+def alternate_tensor(U2, U1):
+    """
+    Produce a tensor A[(σ1σ2),i,j]:
+    
+    A[(σ1σ2),i,j] = Σα U1[σ1,σ2,i,α]U2[α,j,0,0]
+    """
+    
+    return np.tensordot(
+        U1.reshape(2,2,2,2),
+        U2[:,0].reshape(2,2),
+        (3,0)).reshape(4,2,2)

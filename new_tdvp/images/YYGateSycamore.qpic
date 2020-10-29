@@ -1,0 +1,19 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEFINE U1 G:width=20:fill=myred
+DEFINE CP G:width=20:fill=myblue:height=30
+DEFINE K0 G:width=20:fill=mygreen:height=30
+
+q1 W 
+q2 W 
+
+q1 q2 G \rotatebox{90}{$YY^{\gamma}$}
+
+=
+
+q1 q2 K0 \rotatebox{90}{$K(\gamma)$}
+q1 G {$X$}
+q1 q2 K0 \rotatebox{90}{$K(-\gamma)$}
+q1 G {$X$}

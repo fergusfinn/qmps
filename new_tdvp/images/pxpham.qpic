@@ -1,0 +1,33 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+DEFINE U G:width=30:fill=myblue
+
+q1 W 
+q2 W   
+q3 W
+
+q1 q2 q3 U {\scriptsize $PXP$}
+
+= 
+
+q1 G {$\mathbb{1}$}
+q2 G {$X$}
+q3 G {$\mathbb{1}$}
+
+= +
+
+q1 G {$\mathbb{1}$}
+q2 G {$X$}
+q3 G {$Z$}
+
+= +
+
+q3 G {$\mathbb{1}$}
+q2 G {$X$}
+q1 G {$Z$}
+
+= +
+
+q1 G {$Z$}
+q2 G {$X$}
+q3 G {$Z$}

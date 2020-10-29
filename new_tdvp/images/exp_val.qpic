@@ -1,0 +1,23 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEPTHPAD 3
+DEFINE V G:height=20:fill=myred
+DEFINE U G:height=20:fill=myblue
+DEFINE O G:height=20:fill=white
+
+q1 W \ket{0} \ket{0}
+q2 W \ket{0} \ket{0}
+q3 W \ket{0} \ket{0}
+q4 W \ket{0} \ket{0} 
+
+q1 q2 V $V$
+q2 q3 U $U$
+q3 q4 U $U$ 
+
+q2 q3 O $\hat{O}$
+
+q3 q4 U $U^{\dagger}$
+q2 q3 U $U^{\dagger}$ 
+q1 q2 V $V^{\dagger}$

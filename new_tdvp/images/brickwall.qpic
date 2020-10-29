@@ -1,17 +1,26 @@
-PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} # Define ket command
-DEFINE U1 G:width=16:fill=red!50!white
-DEFINE U2 G:width=16:fill=blue!50!white
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEFINE U1 G:width=20:fill=myred
+DEFINE U2 G:width=20:fill=myblue
+DEFINE U3 G:width=20:fill=mygreen
 
-q1 W \ket{0}
-q2 W \ket{0}
-q3 W \ket{0}
+q1 W \ket{0} 
+q2 W \ket{0} 
+q3 W \ket{0} 
 q4 W \ket{0} 
 q5 W \ket{0} 
-q6 W \ket{0}
+q6 W \ket{0} 
 
-q1 q2 U1 $U1$
-q3 q4 U1 $U1$
-q5 q6 U1 $U1$ 
+q1 q2 U1 {\scriptsize $U1$}
+q3 q4 U1 {\scriptsize $U1$}
+q5 q6 U1 {\scriptsize $U1$}
 
-q2 q3 U2 $U2$
-q4 q5 U2 $U2$
+q2 q3 U2 {\scriptsize $U2$}
+q4 q5 U2 {\scriptsize $U2$}
+
+q1 q2 U3 {\scriptsize $U3$}
+q3 q4 U3 {\scriptsize $U3$}
+q5 q6 U3 {\scriptsize $U3$} 
+

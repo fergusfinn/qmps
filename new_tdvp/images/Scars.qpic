@@ -1,0 +1,18 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+DEFINE U G:width=30:fill=myblue
+
+q1 W 
+q2 W   
+
+q1 q2 U {\scriptsize $U(\theta ,\phi$}
+
+= 
+
+q1 G {$X$}
+q2 G:width=50:height=15 {$Z(\frac{-\phi}{\pi}+\frac{1}{2})$}
+q1 +q2
+q1 G {$X$}
+q1 G {$X(\frac{2\theta}{\pi})$} q2  width=35:height=15
+q1 G {S}
+q2 G:width=35:height=15 {$Z(\frac{-\theta}{\pi})$}

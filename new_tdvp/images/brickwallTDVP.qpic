@@ -1,0 +1,40 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+PREAMBLE \newcommand{\M}[1]{$\scriptstyle M_{#1}$}
+DEPTHPAD 3
+DEFINE U1 G:height=20:width=18:fill=myred
+DEFINE U2 G:height=20:width=18:fill=myblue
+DEFINE M G:width=15:height=15:fill=mygreen
+DEFINE H G:height=20:fill=white:width=25
+
+q1 W \ket{0} \ket{0}
+q2 W \ket{0} \ket{0}
+q3 W \ket{0} \ket{0}
+q4 W \ket{0} \ket{0} 
+q5 W \ket{0} \ket{0}
+q6 W \ket{0} \ket{0}
+
+q1 q2 U1 {\scriptsize $U1$}
+q3 q4 U1 {\scriptsize $U1$}
+q5 q6 U1 {\scriptsize $U1$}
+
+q2 q3 U2 {\scriptsize $U2$}
+q4 q5 U2 {\scriptsize $U2$}
+
+q1 q6 TOUCH 
+
+q2 q3 q4 q5 H {\scriptsize $e^{-iHt}$}
+
+q1 M {\M{R}}
+q6 M {\M{L}}
+
+q2 q3 U2 {\scriptsize $U2^{\prime\dagger}$}
+q4 q5 U2 {\scriptsize $U2^{\prime\dagger}$}
+
+q1 q2 U1 {\scriptsize $U1^{\prime\dagger}$}
+q3 q4 U1 {\scriptsize $U1^{\prime\dagger}$}
+q5 q6 U1 {\scriptsize $U1^{\prime\dagger}$}
+
+
