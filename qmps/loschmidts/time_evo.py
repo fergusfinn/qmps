@@ -10,7 +10,6 @@ from scipy.linalg import expm
 from qmps.ground_state import Hamiltonian
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-mpl.style.use('pub_fast')
 from qmps.represent import ShallowFullStateTensor
 from qmps.tools import tensor_to_unitary, environment_to_unitary
 from qmps.rotosolve import gate as gate_
@@ -93,7 +92,7 @@ def obj(p, A, WW):
     W = Environment(WW, 'W')
 
     qbs = cirq.LineQubit.range(6)
-    C = cirq.Circuit.from_ops([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
+    C = cirq.Circuit([cirq.H(qbs[3]), cirq.CNOT(*qbs[3:5]),
                                U(*qbs[2:4]),
                                U(*qbs[1:3]),
                                W(*qbs[2:4]),
@@ -170,27 +169,7 @@ def loschmidt(t, g0, g1):
     return (f(t*1j, g0, g1)+f(-1j*t, g0, g1))
 
 
-n = 4
-#mpl.style.use("pub_slow")
-color = (plt.cm.viridis(np.linspace(0, 1, n)))
-mpl.rcParams['axes.prop_cycle'] = cycler.cycler('color', color)
-#mpl.style.use("pub_fast")
-#markers = [':', '--', '-.', ':']*2
-markers = ['-']*8
-fig, ax = plt.subplots(1, 1, sharex=True)
-#ax[0].plot(T, eevs)
 ps = [15]
 for q, i in enumerate(ps):
     j = int((np.max(list(ps))-i)/2)
-    ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[q])
-    ax.set_ylabel('Loschmidt Echo')
-#j=8
-#ax.plot(T, -np.log(np.array(lles)).T[0][:, j], label='depth = {}'.format(i), linestyle = markers[j])
-#ax.plot(T, Q, c='black', label='exact')
-
-ax.legend(loc=1)
-
-plt.ylim([0, 1])
-#ax[0].set_ylabel('Expectation Values')
-ax.set_xlabel('time (t/J)')
-plt.savefig('/Users/fergusbarratt/Desktop/Loschmidts_evs2.pdf', bbox_inches='tight')
+    np.save('lles', -np.log(np.array(lles)).T[0][:, j])

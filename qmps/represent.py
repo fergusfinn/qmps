@@ -298,8 +298,8 @@ class ShallowCNOTStateTensor(cirq.Gate):
         return 2
 
     def _decompose_(self, qubits):
-        return [[cirq.Rz(β)(qubit) for qubit in qubits] + \
-                [cirq.Rx(γ)(qubit) for qubit in qubits] + \
+        return [[cirq.rz(β)(qubit) for qubit in qubits] + \
+                [cirq.rx(γ)(qubit) for qubit in qubits] + \
                 [cirq.H(qubits[0])]+\
              list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
                 #+\
@@ -323,8 +323,8 @@ class ShallowCNOTStateTensor_nonuniform(cirq.Gate):
         return int((log2(D)+1)*2)
 
     def _decompose_(self, qubits):
-        return [[cirq.Rz(params[i])(qubit) for i, qubit in enumerate(qubits)]+
-                [cirq.Rx(params[i+self.n_qubits])(qubit) for i, qubit in enumerate(qubits)]+
+        return [[cirq.rz(params[i])(qubit) for i, qubit in enumerate(qubits)]+
+                [cirq.rx(params[i+self.n_qubits])(qubit) for i, qubit in enumerate(qubits)]+
                 list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)]))
                 for params in split_ns(self.βγs, self.n_qubits*2)]
 
@@ -341,9 +341,9 @@ class ShallowCNOTStateTensor3(cirq.Gate):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [[cirq.Rz(β)(qubit) for qubit in qubits] + \
-                [cirq.Rx(γ)(qubit) for qubit in qubits] + \
-                [cirq.Rz(ω)(qubit) for qubit in qubits] + \
+        return [[cirq.rz(β)(qubit) for qubit in qubits] + \
+                [cirq.rx(γ)(qubit) for qubit in qubits] + \
+                [cirq.rz(ω)(qubit) for qubit in qubits] + \
                 [cirq.H(qubits[0])]+\
              list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
                 #+\
@@ -368,9 +368,9 @@ class ExactAfter4(cirq.Gate):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [[cirq.Rz(a)(qubits[0]), cirq.Rz(d)(qubits[1])] + \
-                [cirq.Rx(b)(qubits[0]), cirq.Rx(e)(qubits[1])] + \
-                [cirq.Rz(c)(qubits[0]), cirq.Rz(f)(qubits[1])] + \
+        return [[cirq.rz(a)(qubits[0]), cirq.rz(d)(qubits[1])] + \
+                [cirq.rx(b)(qubits[0]), cirq.rx(e)(qubits[1])] + \
+                [cirq.rz(c)(qubits[0]), cirq.rz(f)(qubits[1])] + \
              list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
                 +\
                  [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
@@ -390,15 +390,15 @@ class ShallowFullStateTensor(cirq.Gate):
         return self.n_qubits
 
     def _decompose_(self, qubits):
-        return [cirq.Rz(self.βγs[0])(qubits[0]), cirq.Rx(self.βγs[1])(qubits[0]), cirq.Rz(self.βγs[2])(qubits[0]),
-                cirq.Rz(self.βγs[3])(qubits[1]), cirq.Rx(self.βγs[4])(qubits[1]), cirq.Rz(self.βγs[5])(qubits[1]),
+        return [cirq.rz(self.βγs[0])(qubits[0]), cirq.rx(self.βγs[1])(qubits[0]), cirq.rz(self.βγs[2])(qubits[0]),
+                cirq.rz(self.βγs[3])(qubits[1]), cirq.rx(self.βγs[4])(qubits[1]), cirq.rz(self.βγs[5])(qubits[1]),
                 cirq.CNOT(qubits[0], qubits[1]),
-                cirq.Ry(self.βγs[6])(qubits[0]),
+                cirq.ry(self.βγs[6])(qubits[0]),
                 cirq.CNOT(qubits[1], qubits[0]),
-                cirq.Ry(self.βγs[7])(qubits[0]), cirq.Rz(self.βγs[8])(qubits[1]),
+                cirq.ry(self.βγs[7])(qubits[0]), cirq.rz(self.βγs[8])(qubits[1]),
                 cirq.CNOT(qubits[0], qubits[1]),
-                cirq.Rz(self.βγs[9])(qubits[0]), cirq.Rx(self.βγs[10])(qubits[0]), cirq.Rz(self.βγs[11])(qubits[0]),
-                cirq.Rz(self.βγs[12])(qubits[1]), cirq.Rx(self.βγs[13])(qubits[1]), cirq.Rz(self.βγs[14])(qubits[1])]
+                cirq.rz(self.βγs[9])(qubits[0]), cirq.rx(self.βγs[10])(qubits[0]), cirq.rz(self.βγs[11])(qubits[0]),
+                cirq.rz(self.βγs[12])(qubits[1]), cirq.rx(self.βγs[13])(qubits[1]), cirq.rz(self.βγs[14])(qubits[1])]
 
     def _circuit_diagram_info_(self, args):
         return [self.symbol] * self.n_qubits
@@ -415,8 +415,8 @@ class StateGate(cirq.Gate):
 
     def _decompose_(self, qubits):
         a, b, c, d, e, f = self.βγs[:6]
-        return [cirq.Rx(a)(qubits[0]), cirq.Rx(b)(qubits[1]),
-                cirq.Rz(c)(qubits[0]), cirq.Rz(d)(qubits[1]),
+        return [cirq.rx(a)(qubits[0]), cirq.rx(b)(qubits[1]),
+                cirq.rz(c)(qubits[0]), cirq.rz(d)(qubits[1]),
                 (cirq.XX**e)(*qubits), (cirq.YY**f)(*qubits)]
 
     def _circuit_diagram_info_(self, args):
