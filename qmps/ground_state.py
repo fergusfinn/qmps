@@ -268,7 +268,6 @@ class NonSparseFullEnergyOptimizer(Optimizer):
     def update_state(self):
         self.U = SU(self.optimized_result.x, 2*self.D)
 
-
 class NonSparseFullTwoSiteEnergyOptimizer(Optimizer):
     """
     NonSparse: not a low depth variational optimizer
@@ -334,8 +333,6 @@ class NonSparseFullTwoSiteEnergyOptimizer(Optimizer):
     def update_state(self):
         self.u1 = SU(self.optimized_result.x[:15], 4)
         self.u2 = SU(self.optimized_result.x[15:], 4)
-
-
 
 class NoisyNonSparseFullEnergyOptimizer(Optimizer):
     """NonSparseFullEnergyOptimizer
