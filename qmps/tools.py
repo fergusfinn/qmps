@@ -13,7 +13,10 @@ from xmps.iMPS import TransferMatrix, iMPS
 from scipy.linalg import null_space, norm, svd, cholesky
 from scipy.optimize import minimize
 
-from skopt import gp_minimize
+import warnings
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+#    from skopt import gp_minimize
 
 import matplotlib.pyplot as plt
 import os
@@ -164,6 +167,11 @@ def split_3s(x):
     """split_3s: take a list: [β, γ, β, γ, ...], return [[β, γ, β], [γ, β, γ], ...]
     """
     return [x[i:i+3] for i in range(len(x)) if not i%3]
+
+def split_ns(x, n):
+    """split_ns: take a list: [β, γ, β, γ, ...], return [[β, γ, β], [γ, β, γ], ...]
+    """
+    return [x[i:i+n] for i in range(len(x)) if not i%n]
 
 def get_env_exact(U):
     """get_env_exact: v. useful for testing. Much faster than variational optimization of the env.
