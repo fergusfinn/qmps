@@ -6,6 +6,9 @@ from sympy import Symbol, Matrix
 sqrtiSWAP = cirq.ISwapPowGate(exponent = 0.5)    
 sqrtiSWAPinv = cirq.ISwapPowGate(exponent = -0.5)    
 
+def round(matrix):
+    return np.round(matrix,3)
+
 class K(cirq.Gate):
     def __init__(self, theta):
         self.theta = theta
@@ -79,10 +82,15 @@ class CPHASE(cirq.Gate):
             cirq.rx(-self.xi_two)(qubits[1])
         ]
 
-class CPHASEPure(CPHASE):
+class CPHASEExact(CPHASE):
     def __init__(self, phi):
-        super().__init__(phi, 0,0,0)
+        self.phi = phi
 
+    def num_qubits(self):
+        return 2
+
+    def _decompose_(self, qubits):
+        return [cirq.CZPowGate(exponent=self.phi / pi)(*qubits)]
 
 class TFIM(cirq.Gate):
     def __init__(self, J, g, dt):
@@ -97,24 +105,61 @@ class TFIM(cirq.Gate):
         return [
             cirq.Y(qubits[0]),
             cirq.Y(qubits[1]),
-            K(J*dt)(*qubits),
+            K(self.J*self.dt)(*qubits),
             cirq.X(qubits[1]),
-            K(J*dt)(*qubits),
+            K(self.J*self.dt)(*qubits),
             cirq.X(qubits[0]),
-            CPHASEPure(g*dt)(*qubits),
+            CPHASEExact(self.g*self.dt / pi)(*qubits),
             cirq.X(qubits[0]),
             cirq.X(qubits[1]),
-            CPHASEPure(g*dt)(*qubits),
+            CPHASEExact(self.g*self.dt / pi)(*qubits),
             cirq.Y(qubits[0]),
             cirq.Y(qubits[1])
         ]
 
+def tests():
+
+    def testK():
+        exactK = lambda theta: np.array([
+        [1,0,0,0],
+        [0, np.cos(theta), -1j*np.sin(theta),0],
+        [0, -1j*np.sin(theta), np.cos(theta),0],
+        [0,0,0,1] 
+        ])
+
+        params = np.random.rand(5)
+        for p in params:
+            q =  cirq.LineQubit.range(2)
+            c = cirq.Circuit()
+            c.append(K(p).on(*q))
+
+            assert np.allclose(cirq.unitary(c) - exactK(p), 0)
+
+        print("K Gate is correct")
+
+    def testExpYY():
+        expYYexact = lambda theta: np.array([
+            [np.cos(theta),0,0,1j*np.sin(theta)],
+            [0,np.cos(theta),-1j*np.sin(theta),0],
+            [0,-1j*np.sin(theta), np.cos(theta),0],
+            [1j*np.sin(theta),0,0,np.cos(theta)]
+        ]) 
+
+        for p in np.random.rand(5):
+            q = cirq.LineQubit.range(2)
+            c = cirq.Circuit()
+            c.append([expYY(p).on(*q)])
+        
+            assert np.allclose(cirq.unitary(c) - expYYexact(p), 0)
+
+        print("expYY Gate is correct")
+
+    testK()
+    testExpYY()
 
 if __name__ == "__main__":
-    c = cirq.Circuit()
     q = cirq.LineQubit.range(2)
-    c.append([
-        K(pi/4).on(*q)
-    ])
-
-    print(np.round(cirq.unitary(c),3))
+    c = cirq.Circuit()
+    c.append([CPHASEExact(0.5).on(*q)])
+    print(round(cirq.unitary(c)))
+    
