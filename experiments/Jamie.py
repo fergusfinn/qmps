@@ -2,12 +2,38 @@ import cirq
 from numpy import pi
 import numpy as np
 from sympy import Symbol, Matrix
+from cirq.contrib.svg import SVGCircuit
 
 sqrtiSWAP = cirq.ISwapPowGate(exponent = 0.5)    
 sqrtiSWAPinv = cirq.ISwapPowGate(exponent = -0.5)    
 
 def round(matrix):
     return np.round(matrix,3)
+
+class ParametrisedCircuit(cirq.Gate):
+    """
+    This circuit parametrises an MPS state using repeated layers of Ry 
+    gates and sqrt(iSWAP) gate as are available on Google's device
+    """
+    def __init__(self, depth, params):
+        """
+        params = [[Θ1, Θ2],...], 2 params for each layer
+        """
+        assert len(params) == depth
+        self.d = depth
+        self.p = params
+
+    def num_qubits(self):
+        return 2
+
+    def _decompose_(self, qubits):
+        gates = []
+        for p in self.p:
+            gates += [cirq.ry(p[0]).on(qubits[0]),
+                      cirq.ry(p[1]).on(qubits[1]),
+                      sqrtiSWAP.on(*qubits)]
+        return gates
+
 
 class K(cirq.Gate):
     def __init__(self, theta):
@@ -158,8 +184,13 @@ def tests():
     testExpYY()
 
 if __name__ == "__main__":
-    q = cirq.LineQubit.range(2)
+    # Representing Circuit:
+    q = cirq.LineQubit.range(5)
     c = cirq.Circuit()
-    c.append([CPHASEExact(0.5).on(*q)])
-    print(round(cirq.unitary(c)))
-    
+    state_symbols = [[Symbol("Θ1"), Symbol("Θ2")], [Symbol("Θ3"), Symbol("Θ4")]]
+    env_symbols = [Symbol("γ"), Symbol("ϕ1"), Symbol("ϕ2")]
+    c.append([
+        V(env_symbols)(*q[2:4]),
+        ParametrisedCircuit(2, state_symbols)(*q[3:5]),
+        V(env_symbols)(*q[0:2])
+    ])
