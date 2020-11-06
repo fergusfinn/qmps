@@ -81,8 +81,8 @@ class V(cirq.Gate):
     def _decompose_(self, qubits):
         return [
             expYY(self.gamma).on(*qubits),
-            cirq.rx(self.psi).on(qubits[0]),
-            cirq.rz(self.phi).on(qubits[0])
+            cirq.rx(self.psi).on(qubits[1]),
+            cirq.rz(self.phi).on(qubits[1])
         ]
 
 class CPHASE(cirq.Gate):
@@ -119,10 +119,12 @@ class CPHASEExact(CPHASE):
         return [cirq.CZPowGate(exponent=self.phi / pi)(*qubits)]
 
 class TFIM(cirq.Gate):
-    def __init__(self, J, g, dt):
+    def __init__(self, J, g, ξ1, ξ2, α):
         self.J = J
         self.g = g
-        self.dt = dt
+        self.ξ1 = ξ1
+        self.ξ2 = ξ2
+        self.α = α
 
     def num_qubits(self):
         return 2
@@ -131,17 +133,39 @@ class TFIM(cirq.Gate):
         return [
             cirq.Y(qubits[0]),
             cirq.Y(qubits[1]),
-            K(self.J*self.dt)(*qubits),
+            K(self.J)(*qubits),
             cirq.X(qubits[1]),
-            K(self.J*self.dt)(*qubits),
+            K(self.J)(*qubits),
             cirq.X(qubits[0]),
-            CPHASEExact(self.g*self.dt / pi)(*qubits),
+            CPHASE(self.g, self.α, self.ξ1, self.ξ2)(*qubits),
             cirq.X(qubits[0]),
             cirq.X(qubits[1]),
-            CPHASEExact(self.g*self.dt / pi)(*qubits),
+            CPHASE(self.g, self.α, self.ξ1, self.ξ2)(*qubits),
             cirq.Y(qubits[0]),
             cirq.Y(qubits[1])
         ]
+
+class RightEnvironment(cirq.Gate):
+
+    def __init__(self, params):
+        self.θ = params[0]
+        self.ψ = params[1]
+        self.ϕ = params[2]
+
+    def num_qubits(self):
+        return 2
+
+    def _decompose_(self, qubits):
+        return [
+            cirq.rz(self.ψ)(qubits[1]),
+            cirq.rx(self.ϕ)(qubits[1]),
+            cirq.rx(self.θ)(qubits[0]),
+            cirq.CNOT(qubits[1], qubits[0]),
+            cirq.rx(self.θ)(qubits[0]),
+            cirq.rx(-self.ϕ)(qubits[1]),
+            cirq.rz(-self.ψ)(qubits[1])
+        ]
+
 
 def tests():
 

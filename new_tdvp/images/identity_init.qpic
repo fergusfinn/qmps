@@ -1,0 +1,13 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} # Define ket command
+DEFINE U1 G:width=30:fill=red!50!white
+DEFINE U2 G:width=30:fill=blue!50!white
+
+q1 W 
+q2 W 
+
++q1 q2
+q1 G:width=30 {$R_{x}(\theta)$}
+q2 G:width=30 {$R_{x}(\phi)$}
+q1 G:width=30 {$R_{x}(\gamma)$}
+q2 G:width=30 {$R_{x}(\delta)$}
++q1 q2
