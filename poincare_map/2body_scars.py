@@ -12,6 +12,9 @@ import tqdm as tq
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed 
 import yaml
+import matplotlib.pyplot as plt
+import pickle
+import sys
 
 def multi_tensor(Ops):
     return reduce(kron, Ops)
@@ -81,13 +84,16 @@ def scars_time_evolve_cost_function(params, current_params, ham):
     A2_= A(θ2_, ϕ2_) # A(θ2_, ϕ2_)
     
     _, r = Map(merge(A1,A2), merge(A1_,A2_)).right_fixed_point()
+    _, l = Map(merge(A1,A2), merge(A1_,A2_)).left_fixed_point()
+
     R = Tensor(put_env_on_left_site(r), 'R')
-    L = Tensor(put_env_on_right_site(r.conj().T),'L')
+    L = Tensor(put_env_on_right_site(l.conj().T),'L')
     
     U12 = ScarGate(current_params)
     U12_= ScarGate(params)
     q = cirq.LineQubit.range(8)
-    circuit = cirq.Circuit.from_ops([
+    circuit = cirq.Circuit()
+    circuit.append([
         cirq.H(q[5]),
         cirq.CNOT(q[5],q[6]),
         U12(*q[3:6]),
@@ -103,7 +109,7 @@ def scars_time_evolve_cost_function(params, current_params, ham):
     
     # print(circuit.to_text_diagram(transpose = True))
     sim = cirq.Simulator(dtype = np.complex128)
-    ψ = sim.simulate(circuit).final_state[0]
+    ψ = sim.simulate(circuit).final_state_vector[0]
     return -np.abs(ψ)*2
 
 def scars_cost_fun_alternate(params, current_params, ham):
@@ -120,18 +126,19 @@ def scars_cost_fun_alternate(params, current_params, ham):
     A1_= A(θ1_, ϕ1_)
     A2_= A(θ2_, ϕ2_)
     
-    A12 = merge(A1,A2)
-    A12_= merge(A1_,A2_)
-    
+    A12 = np.tensordot(cirq.unitary(ham),merge(merge(merge(A1,A2), A1),A2), [1,0]) # time evo unitary included in right environment calculation
+    A12_= merge(merge(merge(A1_,A2_), A1_),A2_)
+
     _, r = Map(A12, A12_).right_fixed_point()
     R = Tensor(put_env_on_left_site(r), 'R')
     L = Tensor(put_env_on_right_site(r.conj().T),'L')
     
-    U12 = Tensor(tensor_to_unitary(A12),'U')
-    U12_= Tensor(tensor_to_unitary(A12_),'U\'')
+    U12 = Tensor(tensor_to_unitary(merge(A1,A2)),'U')
+    U12_= Tensor(tensor_to_unitary(merge(A1_,A2_)),'U\'')
     
     q = cirq.LineQubit.range(8)
-    circuit = cirq.Circuit.from_ops([
+    circuit = cirq.Circuit()
+    circuit.append([
         cirq.H(q[5]),
         cirq.CNOT(q[5],q[6]),
         U12(*q[3:6]),
@@ -147,7 +154,7 @@ def scars_cost_fun_alternate(params, current_params, ham):
     
     # print(circuit.to_text_diagram(transpose = True))
     sim = cirq.Simulator(dtype=np.complex128)
-    ψ = sim.simulate(circuit).final_state[0]
+    ψ = sim.simulate(circuit).final_state_vector[0]
     return -np.abs(ψ)*2
 
 def simulate_scars(initial_params, params):
@@ -162,9 +169,14 @@ def simulate_scars(initial_params, params):
     hamiltonian = W(μ, dt)
     final_params = []
     current_params = initial_params
-    for _ in tq.tqdm(range(timesteps)):
+    for _ in range(timesteps):
         final_params.append(current_params)
-        res = minimize(scars_time_evolve_cost_function, current_params, args = (current_params, hamiltonian), options = {'disp':False,'xatol':1e-4, 'fatol':1e-6}, method = 'Nelder-Mead')
+        res = minimize(
+            scars_cost_fun_alternate, 
+            current_params, 
+            args = (current_params, hamiltonian), 
+            options = {'disp':False}, 
+            method = 'BFGS')
         current_params = res.x
         #xatol':1e-6, 'fatol':1e-8, 'adaptive':True
     return np.array(final_params)
@@ -173,9 +185,9 @@ def simulate_scars_with_save(initial_params, params):
     dt, timesteps = params
     μ = 0.325
     H = lambda μ:0.5*(multi_tensor([I,P,X,P]) + multi_tensor([P,X,P,I])) + (μ/4) * (multi_tensor([I,I,I,n]) + 
-                                                                                multi_tensor([I,I,n,I]) +
-                                                                                multi_tensor([I,n,I,I]) + 
-                                                                                multi_tensor([n,I,I,I]))
+                                                                                    multi_tensor([I,I,n,I]) +
+                                                                                    multi_tensor([I,n,I,I]) + 
+                                                                                    multi_tensor([n,I,I,I]))
 
     W = lambda μ, dt: Tensor(expm(1j * dt * H(μ)),'H')
     hamiltonian = W(μ, dt)
@@ -253,48 +265,6 @@ def interpolate_functions(x, t, results):
         f4 = interp1d(t[x-1:x+2], results[x-1:x+2,3], kind='linear')
 
     return f1, f2, f3, f4
-
-def plot_map_variable(angles, show = True):
-    cm = plt.cm.twilight_shifted
-    # plt.gca().set_prop_cycle(plt.cycler('color', cm(np.linspace(0, 1, len(angles)))))
-    allphi1 = []
-    allphi2 = []
-    allthe2 = []
-    for solution in tq.tqdm(angles):
-        t = solution.t
-        results = solution.y.T
-        mod_θ2 = centre_plane(results[:,0])
-        x_points = find_crossing_points(mod_θ2)
-        ϕ1s = []
-        ϕ2s = []
-        θ2s = []
-        for x in x_points:
-            if x[0] <= 1: continue;
-            f1,f2,f3,f4 = interpolate_functions(x[0],t,results)
-            t0 = find_zero(x[0],t,f1)
-            ϕ1_0 = f2(t0)
-            ϕ2_0 = f3(t0)
-            θ2_0 = f4(t0)
-
-            ϕ1s.append(ϕ1_0)
-            allphi1.append(ϕ1_0)
-            
-            ϕ2s.append(ϕ2_0)
-            allphi2.append(ϕ2_0)
-
-            θ2s.append(θ2_0)
-            allthe2.append(θ2_0)
-        if show:
-            plt.figure()
-            plt.ylim(4,6)
-            plt.scatter(np.mod(np.array(ϕ1s),np.pi*2), np.mod(np.array(θ2s),np.pi*2), c = np.mod(ϕ2s, 2*np.pi),s=0.5,cmap = cm)
-    if show:
-        plt.colorbar()
-        #plt.show()
-        plt.savefig("exact_1D_0th_order.png")
-    else:
-        return np.column_stack(([0.9]*len(allphi1), allphi1, allphi2, allthe2))
-
 
 def plot_map_by_number(angles, show = True, argsort = False):
     cm = plt.cm.viridis
@@ -440,8 +410,8 @@ def const_energy_params_1D(linesteps):
 
 
 def simulate_params(list_of_values, dt, timesteps):
-    total_time = dt/4*timesteps
-    t = [dt/4*i for i in range(1,timesteps)]
+    total_time = dt/2*timesteps
+    t = [dt/2*i for i in range(1,timesteps)]
     list_of_angles = Parallel(n_jobs=-1)(delayed(ode_solver)(i,total_time, t) for i in tq.tqdm(list_of_values))
     return list_of_angles
 
@@ -452,24 +422,6 @@ def const_energy_simulation(dt, timesteps, linesteps, dim_1 = False):
         params = const_energy_params(linesteps)
     return simulate_params(params, dt, timesteps)
 
-def run_single_fixed_times(dt, timesteps, quantum = True):
-    print("\n", dt, timesteps, "\n")
-    total_time = dt * timesteps
-    initial_params = [0.9, 0.01, arcsin(find_sin(0.9, 0.01, 0.01, 0.325)), 0.01]
-    # t_q = [i*dt for i in range(timesteps)]
-    t_c = [i*dt/2 for i in range(timesteps)]
-    if quantum:
-        q_angles = simulate_scars(initial_params, [dt, timesteps])
-    
-    c_angles = ode_solver(initial_params, t_eval = t_c, t_final = total_time/2)
-
-    fig, axes = plt.subplots(ncols=2, nrows = 2, sharex=True, sharey=True)
-    for i, ax in enumerate(axes.flatten()):
-        if quantum:
-            ax.plot(np.mod(q_angles[:,i], 2*np.pi), 'b')
-        ax.plot(np.mod(c_angles.y.T[:,i], 2*np.pi), 'r')
-    
-    plt.show()
 
 def plot_single_from_file(n, filename):
     with open(filename + f"{n}.yml") as f:
@@ -666,9 +618,154 @@ def save_high_order_params(filename, max_iter, tol, savename,txt):
     with open(savename, 'w') as f:
         f.write(param_string)
         
+def run_single_fixed_times(dt, timesteps, quantum = True):
+    print("\n", dt, timesteps, "\n")
+    total_time = dt * timesteps
+    initial_params = [0.9, 0.01, arcsin(find_sin(0.9, 0.01, 0.01, 0.325)), 0.01]
+    # t_q = [i*dt for i in range(timesteps)]
+    t_c = [i*dt/2 for i in range(timesteps)]
+    if quantum:
+        q_angles = simulate_scars(initial_params, [dt, timesteps])
+    
+    c_angles = ode_solver(initial_params, t_eval = t_c, t_final = total_time/2)
+
+    fig, axes = plt.subplots(ncols=2, nrows = 2, sharex=True, sharey=True)
+    for i, ax in enumerate(axes.flatten()):
+        if quantum:
+            ax.plot(np.mod(q_angles[:,i], 2*np.pi), 'b', label = "quantum")
+        ax.plot(np.mod(c_angles.y.T[:,i], 2*np.pi), 'r', label = "classical")
+    fig.suptitle(f"DT:{dt}")
+    plt.show()
+
+def plot_map_variable(angles):
+    cm = plt.cm.twilight_shifted
+    # plt.gca().set_prop_cycle(plt.cycler('color', cm(np.linspace(0, 1, len(angles)))))
+    allphi1 = []
+    allphi2 = []
+    allthe2 = []
+    
+    for solution in tq.tqdm(angles):
+        t = solution.t
+        results = solution.y.T
+        mod_θ2 = centre_plane(results[:,0])
+        x_points = find_crossing_points(mod_θ2)
+        ϕ1s = []
+        ϕ2s = []
+        θ2s = []
+        for x in x_points:
+            if x[0] <= 1: continue;
+            f1,f2,f3,f4 = interpolate_functions(x[0],t,results)
+            t0 = find_zero(x[0],t,f1)
+            ϕ1_0 = f2(t0)
+            ϕ2_0 = f3(t0)
+            θ2_0 = f4(t0)
+
+            ϕ1s.append(ϕ1_0)
+            allphi1.append(ϕ1_0)
+            
+            ϕ2s.append(ϕ2_0)
+            allphi2.append(ϕ2_0)
+
+            θ2s.append(θ2_0)
+            allthe2.append(θ2_0)
         
+        plt.scatter(np.mod(np.array(ϕ1s),np.pi*2), 
+                    np.mod(np.array(θ2s),np.pi*2), 
+                    c = np.mod(ϕ2s, 2*np.pi),
+                    s=0.5,cmap = cm)
+    plt.ylim(4,2*np.pi)
+    plt.colorbar()
+    plt.show()
+
+
+def plot_quantum_angles(angles):
+    cm = plt.cm.twilight_shifted
+    
+    steps = len(angles[0])
+    starting_conds = len(angles)
+    t = [0.1*i for i in range(steps)]
+
+    for i in range(starting_conds):
+        
+        # Take a single time evolution run from an initial condition
+        single_run = angles[i] 
+
+        # Transform θ2 so that the crossing is at 0
+        mod_θ2 = centre_plane(single_run[:,0])
+        
+        # find where the sign of the results change
+        crossing_points = find_crossing_points(mod_θ2)
+
+        ϕ1s = []
+        ϕ2s = []
+        θ2s = []
+
+        for x in crossing_points:
+            # calculate the polynomial interpolation of the 4 angles around the crossing points
+            f1,f2,f3,f4 = interpolate_functions(x[0], t, single_run)
+            
+            # find the time from f1 that the crossing pouint occurs by finding the root of the 
+            #   interpolated function f1
+            t0 = find_zero(x[0], t, f1)
+
+            # find the value of the three other parameters by evaluating the polynomial functions
+            #   at the previously calculated crossing time.
+            ϕ1_cross = f2(t0)
+            ϕ2_cross = f3(t0)
+            θ2_cross = f4(t0)
+            
+            # add the crossing points to be plotted later
+            ϕ1s.append(ϕ1_cross)
+            ϕ2s.append(ϕ2_cross)
+            θ2s.append(θ2_cross)
+
+        plt.scatter(np.mod(np.array(ϕ1s),np.pi*2), 
+                    np.mod(np.array(θ2s),np.pi*2), 
+                    c = np.mod(ϕ2s, 2*np.pi),
+                    s=0.5,cmap = cm)
+    plt.ylim(4, 2*np.pi)
+    plt.colorbar()
+    plt.show()
+
+def plot_map(angles, TYPE):
+    if TYPE == "c":
+        plot_map_variable(angles)
+
+    if TYPE == "q":
+        plot_quantum_angles(angles)
+
 if __name__ == "__main__":
+    # We need 403 params
+    import pickle
+    import sys
+    DT = 0.05
+    STEPS = 2000
+    PARAMGAP = 0.01
+    TYPE = "Quantum"
+    PARAM_NUM = int(sys.argv[1])-1
     
-    angles_1d = const_energy_simulation(0.1, 2000, 0.3, True)        
-    plot_map_variable(angles_1d, show = True)
+    init_param = const_energy_params_1D(PARAMGAP)[PARAM_NUM]
+
+    if TYPE == "Classical":
+        init_params = const_energy_params_1D(PARAMGAP)
+
+        classical_angles = simulate_params(init_params, DT, STEPS)
+
+        classical_filename = "ClassicalAngles.pkl"
+        with open(classical_filename, "wb") as f:
+            pickle.dump(classical_angles, f)
     
+    quantum_angles = simulate_scars(init_param, DT, STEPS)
+    quantum_filename = f"QuantumAngles{PARAM_NUM}.pkl"
+    with open (quantum_filename, "wb") as f:
+        pickle.dump(quantum_angles, f)
+
+    if action == "plot":
+
+        plot_filename = "ClassicalAnglesdt05_2000_01.pkl"
+        with open(plot_filename, "rb") as f:
+            angles = pickle.load(f)
+
+        plot_map(angles, TYPE)
+
+        

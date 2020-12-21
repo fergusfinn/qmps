@@ -1,0 +1,62 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+PREAMBLE \newcommand{\M}[1]{$\scriptstyle M_{#1}$}
+DEPTHPAD 3
+DEFINE L G:height=20:width=18:fill=mygreen
+DEFINE U G:height=20:width=18:fill=myblue
+
+q1 W {$i$} {$j$} {$i$} {$j$}
+q2 W \ket{0} \ket{0} \ket{0} \ket{0}
+q3 W \ket{0} \ket{0} \ket{0} \ket{0}
+q4 W \ket{0} \ket{0} \ket{0} \ket{0}
+
+
+
+q1 q2 U {$U$}
+q2 q3 U {$U$}
+
+q4 TOUCH 
+q1 TOUCH  
+q2 TOUCH 
+q3 TOUCH 
+
+q4 TOUCH 
+q1 TOUCH 
+q2 TOUCH 
+q3 TOUCH 
+
+q1 q2 G:width=35:height=20 {$e^{-iHdt}$}
+q3 q4 L {$L$}
+q4 TOUCH 
+q1 TOUCH 
+q2 TOUCH 
+q3 TOUCH 
+
+q4 TOUCH 
+q1 TOUCH 
+q2 TOUCH 
+q3 TOUCH 
+
+q2 q3 U {$U^\prime$}
+q1 q2 U {$U^\prime$}
+
+q4 TOUCH 
+q1 TOUCH 
+q2 TOUCH 
+q3 TOUCH 
+
+
+q1 END
+q2 END
+q3 END
+q4 END
+
+=
+
+q1 START
+q2 START
+
+q1 q2 L {$L$}
+

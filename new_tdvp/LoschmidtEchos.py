@@ -281,36 +281,33 @@ def Param2State(p):
     U2 = ShallowFullStateTensor(2, p[15:], 'U2')
     return State2Vector(U1, U2)
 
+def Ham(J,g):
+    return sum([
+                (J/3)*sum([
+                    tensor_prod([Z,Z,I,I]),
+                    tensor_prod([I,Z,Z,I]),
+                    tensor_prod([I,I,Z,Z])]),
+                (g/4)*sum([
+                    tensor_prod([X,I,I,I]),
+                    tensor_prod([I,X,I,I]),
+                    tensor_prod([I,I,X,I]),
+                    tensor_prod([I,I,I,X])
+                ])])
+
+
 if __name__ == "__main__":
     # Loschimdt Echos:
 
     initial_state = np.random.rand(30)
-    g0, g1 = 1.5, 0.2
-    from qmps.ground_state import NonSparseFullTwoSiteEnergyOptimizer as TSMPS, Hamiltonian, NonSparseFullEnergyOptimizer as MPS
+    g0, g1 = 0,2
+    STEPS = 500
+    DT = 0.02
 
-    Ham = Hamiltonian({"ZZ":-1,"X":g0}).to_matrix()
-    H2 = tensor_prod([I,Ham,Ham,I])
-    H3 = tensor_prod([I,I,Ham,I,I])
-    H23 = (0.5*H2 + H3)
-    ground_state = minimize(
-        EnergyObj,
-        x0 = initial_state,
-        method = "Nelder-Mead",
-        args = (H23,)
-    )
 
-    Ham = Hamiltonian({"ZZ":-1,"X":g1}).to_matrix()
-    H2 = tensor_prod([Ham,Ham])
-    H3 = tensor_prod([I,Ham,I])
-    H23 = (0.5*H2 + H3)
-
-    STEPS = 400
-    DT = 0.01
-
-    Ut = FullStateTensor(expm(-1j * H23 * DT))
+    Ut = FullStateTensor(expm(-1j * Ham(-1, g1) * DT))
 
     params = []
-    init_param = ground_state.x
+    init_param = [0]*30
     for _ in tqdm(range(STEPS)):
         params.append(init_param)
         U1 = ShallowFullStateTensor(2, init_param[:15], 'U1')
@@ -321,10 +318,10 @@ if __name__ == "__main__":
             x0 = init_param,
             method = "Nelder-Mead",
             args = (U1, U2, Ut),
-            options = {"disp":True}
+            options = {"disp":False}
         )
         
         init_param = next_step.x
 
-    with open("bwLoschmidtEchos.pkl","wb") as f:
+    with open("bwLoschmidtEchosd2g00.pkl","wb") as f:
         pickle.dump(params, f)

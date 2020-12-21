@@ -1,0 +1,10 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle} 
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+PREAMBLE \newcommand{\M}[1]{$\scriptstyle M_{#1}$}
+DEPTHPAD 3
+DEFINE T G:height=20:width=18:fill=mygreen
+DEFINE I G:height=20:width=18:fill=myblue
+
+q1 
