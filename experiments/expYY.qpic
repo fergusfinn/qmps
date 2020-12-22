@@ -1,0 +1,48 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle}
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}# Define ket command
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}# Define ket command
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEFINE g G:height=13:width=13
+DEPTHPAD 5
+SCALE 2.8
+
+q1 W \ket{0}
+q2 W \ket{0}
+
+q1 q2 g \rotatebox{90}{$exp(i\gamma)YY$}
+
+=
+
+# First K Gate
+q1 g {Z($-\pi /4$)}
+q2 g {Z($ \pi /4$)}
+q1 q2 G \rotatebox{90}{$\sqrt{iSWAP}$}
+
+q1 g {Z($ \gamma $)}
+q2 g {Z($ -\gamma $)}
+
+q1 q2 G \rotatebox{90}{$\sqrt{iSWAP}$}
+
+q1 g {Z($ \pi /4$)}
+q2 g {Z($ -\pi /4$)}
+
+# Single X Gate
+q2 g {$X$}
+q1 TOUCH
+
+# Second K Gate
+q1 g {Z($-\pi /4$)}
+q2 g {Z($ \pi /4$)}
+q1 q2 G \rotatebox{90}{$\sqrt{iSWAP}$}
+
+q1 g {Z($ -\gamma $)}
+q2 g {Z($ \gamma $)}
+
+q1 q2 G \rotatebox{90}{$\sqrt{iSWAP}$}
+
+q1 g {Z($ \pi /4$)}
+q2 g {Z($ -\pi /4$)}
+
+# Single X Gate
+q2 G {$X$}
+q1 TOUCH

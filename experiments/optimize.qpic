@@ -1,0 +1,92 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle}
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEPTHPAD 5
+SCALE 2.6
+
+DEFINE gate G:height=20:width=15
+
+q0 W \ket{0}
+q1 W \ket{0}
+q2 W \ket{0}
+q3 W \ket{0}
+q4 W \ket{0}
+q5 W \ket{0}
+
+# First Env
+##########################
+q0 q1 gate \rotatebox{90}{$exp(i\gamma_{0} YY)$}
+q0 G {$Rx(\gamma_{1})$}
+q0 G {$Rz(\gamma_{2})$}
+q0 q1 @ 0 2 fill=myred
+##########################
+
+# Second Env
+##########################
+q4 q5 gate \rotatebox{90}{$exp(i\gamma_{0} YY)$}
+q4 G {$Rx(\gamma_{1})$}
+q4 G {$Rz(\gamma_{2})$}
+q4 q5 @ 0 2 fill=myred
+##########################
+
+q2 TOUCH
+q3 TOUCH
+q4 TOUCH
+
+# First State
+##########################
+q3 G {$Ry(\theta_{0})$}
+q4 G {$Ry(\theta_{1})$}
+q3 q4 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q3 G {$Ry(\theta_{2})$}
+q4 G {$Ry(\theta_{3})$}
+q3 q4 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q3 q4 @ 3 6 fill=myblue
+##########################
+
+q2 TOUCH
+
+# Second State
+##########################
+q2 G {$Ry(\theta_{0})$}
+q3 G {$Ry(\theta_{1})$}
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 G {$Ry(\theta_{2})$}
+q3 G {$Ry(\theta_{3})$}
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 q3 @ 7 10 fill=myblue
+##########################
+
+q0 TOUCH
+q1 TOUCH
+q2 TOUCH
+q3 TOUCH
+q4 TOUCH
+q5 TOUCH
+
+# SWAP Test
+##########################
++q0 q2
+
+
+q3 TOUCH
+q4 TOUCH
+
+q2 G {H}
+##########################
+
+# Hamiltonian Measure
+##########################
+q3 q4 G \rotatebox{90}{Hamiltonian}
+##########################
+
+q1 TOUCH
+
+# Measure Qubits
+##########################
+q1 M {$Z$}
+q2 M {$Z$}
+q3 M {$Z$}
+q4 M {$Z$}
+##########################

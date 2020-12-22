@@ -1,0 +1,30 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle}
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEPTHPAD 5
+SCALE 3
+
+q1 W \ket{0}
+q2 W \ket{0}
+
+q1 q2 G \rotatebox{90}{$TFIM(J,g,dt)$}
+
+=
+
+q1 G {$Y$}
+q2 G {$Y$}
+
+q1 q2 G \rotatebox{90}{$K(J\times dt)$}
+q2 G {$X$}
+q1 q2 G \rotatebox{90}{$K(J\times dt)$}
+q1 G {$X$}
+
+q1 q2 G \rotatebox{90}{$CPHASE(g\times dt)$}
+q1 G {$X$}
+q2 G {$X$}
+q1 q2 G \rotatebox{90}{$CPHASE(g\times dt)$}
+
+q1 G {$Y$}
+q2 G {$Y$}
+

@@ -1,0 +1,118 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle}
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEPTHPAD 5
+SCALE 3
+
+DEFINE gate G:height=20:width=15
+
+q0 W \ket{0} \ket{0}
+q1 W \ket{0} \ket{0}
+q2 W \ket{0} \ket{0}
+q3 W \ket{0} \ket{0}
+q4 W \ket{0} \ket{0}
+q5 W \ket{0} \ket{0}
+
+# Connect Qubits
+#########################
+q3 G {$H$}
++q4 q3
+#########################
+
+q2 TOUCH
+
+# First State
+##########################
+q2 G {$Y(-\phi_{0})$}
+q3 G {$Y(-\phi_{1})$}
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 G {$Y(-\phi{2})$}
+q3 G {$Y(-\phi{3})$}
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 q3 @ 2 5 fill=myblue
+##########################
+
+q1 TOUCH
+
+# Second State
+##########################
+q1 G {$Y(-\phi_{0})$}
+q2 G {$Y(-\phi_{1})$}
+q1 q2 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q1 G {$Y(-\phi{2})$}
+q2 G {$Y(-\phi{3})$}
+q1 q2 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q1 q2 @ 6 9 fill=myblue
+##########################
+
+q4 TOUCH
+
+# Right Env
+##########################
+q1 G {$Z(\gamma_{1})$}
+q0 TOUCH
+q0 G {$X(\gamma_{0})$}
+q1 G {$X(\gamma_{2})$}
+
+q2 TOUCH
+
++q0 q1
+q0 G {$X(-\gamma_{0})$}
+q1 G {$X(\gamma_{2})$}
+q1 G {$Z(\gamma_{1})$}
+q0 q1 @ 10 14 fill=myred
+##########################
+
+
+# Time Evo
+##########################
+q2 q3 G \rotatebox{90}{$TFIM$}
+q2 q3 @ 12 12 fill=mygreen
+##########################
+
+# Right Env
+##########################
+q4 G {$Z(\gamma_{1})$}
+q5 TOUCH
+q5 G {$X(\gamma_{0})$}
+q4 G {$X(\gamma_{2})$}
++q5 q4
+q5 G {$X(-\gamma_{0})$}
+q4 G {$X(\gamma_{2})$}
+q4 G {$Z(\gamma_{1})$}
+q4 q5 @ 10 14 fill=myred
+##########################
+
+q2 TOUCH
+
+# Third State
+##########################
+q1 q2 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 G {$Y(\theta_{3})$}
+q1 G {$Y(\theta_{2})$}
+q1 q2 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q1 G {$Y(\theta_{0})$}
+q2 G {$Y(\theta_{1})$}
+q1 q2 @ 15 18 fill=myblue
+##########################
+
+# Fourth State
+##########################
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q3 G {$Y(\theta_{3})$}
+q2 G {$Y(\theta_{2})$}
+q2 q3 gate \rotatebox{90}{$\sqrt{iSWAP}$}
+q2 G {$Y(\theta_{0})$}
+q3 G {$Y(\theta_{1})$}
+q2 q3 @ 19 22 fill=myblue
+##########################
+
+
+# Connect Qubits
+#########################
++q4 q3
+q3 G {$H$}
+#########################
+
+
