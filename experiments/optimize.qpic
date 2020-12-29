@@ -82,10 +82,10 @@ q3 q4 G \rotatebox{90}{Hamiltonian}
 ##########################
 
 q1 TOUCH
-
+q0 TOUCH
 # Measure Qubits
 ##########################
-q1 M {$Z$}
+q0 M {$Z$}
 q2 M {$Z$}
 q3 M {$Z$}
 q4 M {$Z$}
