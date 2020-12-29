@@ -5,7 +5,7 @@ DEFINE U G:width=30:fill=myblue
 q1 W 
 q2 W   
 
-q1 q2 U {\scriptsize $U(\theta ,\phi$}
+q1 q2 U {\scriptsize $U(\theta ,\phi)$}
 
 = 
 
