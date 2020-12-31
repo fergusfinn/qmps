@@ -1,0 +1,66 @@
+PREAMBLE \providecommand{\ket}[1]{\left|#1\right\rangle}
+PREAMBLE \definecolor{myred}{RGB}{250,102,97}
+PREAMBLE \definecolor{myblue}{RGB}{161,217,230}
+PREAMBLE \definecolor{mygreen}{RGB}{176,255,176}
+DEPTHPAD 5
+SCALE 2.6
+
+DEFINE env G:height=20:width=15:fill=myred
+DEFINE state G:height=20:width=15:fill=myblue
+
+
+q0 W \ket{0}
+q1 W \ket{0}
+q2 W \ket{0}
+q3 W \ket{0}
+q4 W \ket{0}
+q5 W \ket{0}
+
+# First Env
+##########################
+q0 q1 env {$V$}
+##########################
+
+# Second Env
+##########################
+q4 q5 env {$V$}
+##########################
+
+# First State
+##########################
+q3 q4 state {$U$}
+##########################
+
+q2 TOUCH
+
+# Second State
+##########################
+q2 q3 state {$U$}
+##########################
+
+
+# SWAP Test
+##########################
++q0 q2
+
+
+q3 TOUCH
+q4 TOUCH
+
+q2 G {H}
+##########################
+
+# Hamiltonian Measure
+##########################
+q3 q4 G \rotatebox{90}{Hamiltonian}
+##########################
+
+q1 TOUCH
+q0 TOUCH
+# Measure Qubits
+##########################
+q0 M {$Z$}
+q2 M {$Z$}
+q3 M {$Z$}
+q4 M {$Z$}
+##########################
