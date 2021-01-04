@@ -742,30 +742,28 @@ if __name__ == "__main__":
     STEPS = 2000
     PARAMGAP = 0.01
     TYPE = "Quantum"
-    PARAM_NUM = int(sys.argv[1])-1
-    
-    init_param = const_energy_params_1D(PARAMGAP)[PARAM_NUM]
+    #PARAM_NUM = int(sys.argv[1])-1
+    ACTION = "Plot"
 
-    if TYPE == "Classical":
-        init_params = const_energy_params_1D(PARAMGAP)
+    if ACTION == "Simulate":
+        init_param = const_energy_params_1D(PARAMGAP)[PARAM_NUM]
 
-        classical_angles = simulate_params(init_params, DT, STEPS)
+        if TYPE == "Classical":
+            init_params = const_energy_params_1D(PARAMGAP)
 
-        classical_filename = "ClassicalAngles.pkl"
-        with open(classical_filename, "wb") as f:
-            pickle.dump(classical_angles, f)
-    
-    quantum_angles = simulate_scars(init_param, DT, STEPS)
-    quantum_filename = f"QuantumAngles{PARAM_NUM}.pkl"
-    with open (quantum_filename, "wb") as f:
-        pickle.dump(quantum_angles, f)
+            classical_angles = simulate_params(init_params, DT, STEPS)
 
-    if action == "plot":
-
-        plot_filename = "ClassicalAnglesdt05_2000_01.pkl"
-        with open(plot_filename, "rb") as f:
-            angles = pickle.load(f)
-
-        plot_map(angles, TYPE)
-
+            classical_filename = "ClassicalAngles.pkl"
+            with open(classical_filename, "wb") as f:
+                pickle.dump(classical_angles, f)
         
+        quantum_angles = simulate_scars(init_param, [DT, STEPS])
+        quantum_filename = f"QuantumAngles{PARAM_NUM}.pkl"
+        with open (quantum_filename, "wb") as f:
+            pickle.dump(quantum_angles, f)
+
+    if ACTION == "Plot":
+        with open("ClassicalAnglesdt05_2000_01.pkl", "rb") as f:
+            classical_angles = pickle.load(f)
+
+        plot_map_variable(classical_angles)
