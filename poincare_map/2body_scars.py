@@ -175,8 +175,8 @@ def simulate_scars(initial_params, params):
             scars_cost_fun_alternate, 
             current_params, 
             args = (current_params, hamiltonian), 
-            options = {'disp':False}, 
-            method = 'BFGS')
+            options = {'disp':False,'gtol':1e-6}, 
+            method = 'CG')
         current_params = res.x
         #xatol':1e-6, 'fatol':1e-8, 'adaptive':True
     return np.array(final_params)
@@ -639,7 +639,17 @@ def run_single_fixed_times(dt, timesteps, quantum = True):
 
 def plot_map_variable(angles):
     cm = plt.cm.twilight_shifted
+
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Helvetica"]})
+## for Palatino and other serif fonts use:    cm = plt.cm.twilight_shifted
     # plt.gca().set_prop_cycle(plt.cycler('color', cm(np.linspace(0, 1, len(angles)))))
+
+
+    plt.figure(figsize=(4,3))
+
     allphi1 = []
     allphi2 = []
     allthe2 = []
@@ -673,14 +683,23 @@ def plot_map_variable(angles):
                     np.mod(np.array(θ2s),np.pi*2), 
                     c = np.mod(ϕ2s, 2*np.pi),
                     s=0.5,cmap = cm)
-    plt.ylim(4,2*np.pi)
-    plt.colorbar()
+    plt.ylim(5,5.9)
+    plt.xlabel("$\phi_{1}$", fontsize = 15)
+    plt.ylabel("$\\theta_{2}$", fontsize = 15, rotation = 90)
+    cbar = plt.colorbar()
+    cbar.set_label("$\phi_{2}$", fontsize = 15, rotation = 90)    
     plt.show()
 
 
 def plot_quantum_angles(angles):
     cm = plt.cm.twilight_shifted
-    
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Helvetica"]})
+
+    plt.figure(figsize=(4,3))
+
     steps = len(angles[0])
     starting_conds = len(angles)
     t = [0.1*i for i in range(steps)]
@@ -723,8 +742,11 @@ def plot_quantum_angles(angles):
                     np.mod(np.array(θ2s),np.pi*2), 
                     c = np.mod(ϕ2s, 2*np.pi),
                     s=0.5,cmap = cm)
-    plt.ylim(4, 2*np.pi)
-    plt.colorbar()
+    plt.ylim(5,5.9)
+    plt.xlabel("$\phi_{1}$", fontsize = 15)
+    plt.ylabel("$\\theta_{2}$", fontsize = 15, rotation = 90)
+    cbar = plt.colorbar()
+    cbar.set_label("$\phi_{2}$", fontsize = 15, rotation = 90)
     plt.show()
 
 def plot_map(angles, TYPE):
@@ -746,24 +768,28 @@ if __name__ == "__main__":
     ACTION = "Plot"
 
     if ACTION == "Simulate":
-        init_param = const_energy_params_1D(PARAMGAP)[PARAM_NUM]
-
-        if TYPE == "Classical":
-            init_params = const_energy_params_1D(PARAMGAP)
-
-            classical_angles = simulate_params(init_params, DT, STEPS)
-
-            classical_filename = "ClassicalAngles.pkl"
-            with open(classical_filename, "wb") as f:
-                pickle.dump(classical_angles, f)
-        
-        quantum_angles = simulate_scars(init_param, [DT, STEPS])
-        quantum_filename = f"QuantumAngles{PARAM_NUM}.pkl"
-        with open (quantum_filename, "wb") as f:
-            pickle.dump(quantum_angles, f)
+        run_single_fixed_times(0.01,2500)
 
     if ACTION == "Plot":
+        import os
         with open("ClassicalAnglesdt05_2000_01.pkl", "rb") as f:
             classical_angles = pickle.load(f)
 
         plot_map_variable(classical_angles)
+
+        quantum_dir = "./scars_high_step_high_tol/tmpdir/job/"
+        all_quantum = []
+        for file in os.listdir(quantum_dir):
+            loc = quantum_dir + file + "/"
+            for f in os.listdir(loc):
+                try:  
+                    with open(loc + f, "rb") as p:
+                        data = pickle.load(p)
+                        all_quantum.append(data)
+                except:
+                    pass
+
+        plot_quantum_angles(all_quantum)
+
+
+                
