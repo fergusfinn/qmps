@@ -3,7 +3,7 @@ import cirq
 from xmps.iMPS import iMPS, TransferMatrix
 from xmps.spin import U4
 
-from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_2s, split_3s, from_real_vector, to_real_vector, environment_to_unitary, unitary_to_tensor
+from .tools import cT, direct_sum, unitary_extension, sampled_bloch_vector_of, Optimizer, cirq_qubits, log2, split_ns, split_2s, split_3s, from_real_vector, to_real_vector, environment_to_unitary, unitary_to_tensor
 from typing import List, Callable, Dict
 
 from numpy import concatenate, allclose, tensordot, swapaxes, log2, diag
@@ -294,6 +294,9 @@ class ShallowCNOTStateTensor(cirq.Gate):
     def num_qubits(self):
         return self.n_qubits
 
+    def params_per_iter():
+        return 2
+
     def _decompose_(self, qubits):
         return [[cirq.Rz(β)(qubit) for qubit in qubits] + \
                 [cirq.Rx(γ)(qubit) for qubit in qubits] + \
@@ -302,6 +305,28 @@ class ShallowCNOTStateTensor(cirq.Gate):
                 #+\
 #                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
                 for β, γ in split_2s(self.βγs)]
+
+    def _circuit_diagram_info_(self, args):
+        return ['U'] * self.n_qubits
+
+class ShallowCNOTStateTensor_nonuniform(cirq.Gate):
+    def __init__(self, bond_dim, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+        self.D = bond_dim
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def params_per_iter(D):
+        return int((log2(D)+1)*2)
+
+    def _decompose_(self, qubits):
+        return [[cirq.Rz(params[i])(qubit) for i, qubit in enumerate(qubits)]+
+                [cirq.Rx(params[i+self.n_qubits])(qubit) for i, qubit in enumerate(qubits)]+
+                list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)]))
+                for params in split_ns(self.βγs, self.n_qubits*2)]
 
     def _circuit_diagram_info_(self, args):
         return ['U'] * self.n_qubits
@@ -324,6 +349,32 @@ class ShallowCNOTStateTensor3(cirq.Gate):
                 #+\
 #                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
                 for β, γ, ω in split_3s(self.βγs)]
+
+    def _circuit_diagram_info_(self, args):
+        return ['U'] * self.n_qubits
+
+class ExactAfter4(cirq.Gate):
+    """ExactAfter4"""
+    def __init__(self, bond_dim, βγs):
+        self.βγs = βγs
+        self.p = len(βγs)
+        self.n_qubits = int(log2(bond_dim)) + 1
+        self.params_per_iter = 6
+
+    def params_per_iter():
+        return 6
+
+    def num_qubits(self):
+        return self.n_qubits
+
+    def _decompose_(self, qubits):
+        return [[cirq.Rz(a)(qubits[0]), cirq.Rz(d)(qubits[1])] + \
+                [cirq.Rx(b)(qubits[0]), cirq.Rx(e)(qubits[1])] + \
+                [cirq.Rz(c)(qubits[0]), cirq.Rz(f)(qubits[1])] + \
+             list(reversed([cirq.CNOT(qubits[i], qubits[i + 1]) for i in range(self.n_qubits - 1)])) 
+                +\
+                 [cirq.SWAP(qubits[i], qubits[i+1 if i!= self.n_qubits-1 else 0]) for i in list(range(self.n_qubits))]
+                for a, b, c, d, e, f in split_ns(self.βγs, 6)]
 
     def _circuit_diagram_info_(self, args):
         return ['U'] * self.n_qubits
@@ -370,7 +421,6 @@ class StateGate(cirq.Gate):
 
     def _circuit_diagram_info_(self, args):
         return [self.symbol] * self.n_qubits
-
 
 class ShallowEnvironment(cirq.Gate):
     """ShallowEnvironmentTensor: shallow environment tensor based on the QAOA circuit"""
